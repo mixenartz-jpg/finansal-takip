@@ -27,6 +27,8 @@ export default defineConfig({
         "src/features/budgets/progress.ts",
         "src/features/recurring/occurrence.ts",
         "src/features/debts/remaining.ts",
+        "src/features/reports/aggregate.ts",
+        "src/features/reports/csv.ts",
       ],
       // Arayuz tanimlari ve veri sozlukleri: calistirilabilir dal yok,
       // kapsam yuzdesini sulandirirlar.

@@ -168,6 +168,29 @@ Fazla ödeme **engellenmez**, uyarılır — faizli bir borç kalan anaparadan f
 
 ---
 
+## Raporlar
+
+Ay ay gezinip o dönemin özetini, kategori dağılımını ve nakit akışını görürsünüz.
+
+**Ay içi değişim** — bakiyenizin gün gün nasıl değiştiğini gösteren çizgi. Ay başı sıfır kabul edilir: grafik o **ayın** hikâyesini anlatır, mutlak servet düzeyini değil. Fare ile üzerine gelince o günün tam rakamı çıkar. Bakiye negatife düşerse kesikli sıfır çizgisi belirir.
+
+**Kategori dağılımı** — yatay çubuklar, gider/gelir sekmeli. Pasta grafiği kullanılmadı: dilim açılarını karşılaştırmak çubuk uzunluklarını karşılaştırmaktan ölçülebilir biçimde zordur ve Türkçe kategori adları ("Ulaşım", "Eğlence") yatay çubukta doğal okunur.
+
+Renkler tek tonun koyudan açığa rampası — burada renk *kimlik* değil *büyüklük* taşıyor; dilimler zaten sıralı ve adıyla etiketli. Sekiz ayrı renk kullanmak renk körlüğünde ayırt edilemeyen çiftler üretirdi. Rampanın her adımı beyaz zeminde en az 3:1 kontrast verir.
+
+Altıdan fazla kategori varsa kalanlar **"Diğer"** altında toplanır — toplam korunur, bilgi kaybolmaz. **"Tablo olarak göster"** bağlantısı aynı veriyi kesin rakamlarla verir.
+
+### CSV dışa aktarma
+
+**Excel-TR uyumlu** hazırlanır:
+
+- Alan ayracı **noktalı virgül** — Türkçe Excel'in varsayılanı. Virgül kullanılsaydı tüm satır tek hücreye düşerdi.
+- Dosya başında **BOM** — olmadan Excel "Ödeme"yi "Ã–deme" diye okur.
+- Tutarlar **virgüllü ondalık** (`123,45`) ve giderler **negatif** — böylece Excel'de toplam aldığınızda doğru sonuç çıkar.
+- Açıklamaya `=` ile başlayan bir metin yazıldıysa **formül olarak çalıştırılmaz** (CSV enjeksiyonu koruması).
+
+---
+
 ## Yapay zeka eklemek (isteğe bağlı)
 
 Kural motoru AI olmadan çalışır. Zor cümleler için Gemini eklemek isterseniz **arayüz hazır bekliyor**:
@@ -228,4 +251,6 @@ Faz 3 (tamamlandı): **tekrarlayan işlemler** · vade onayı · duraklatma
 
 Faz 4 (tamamlandı): **borç / alacak takibi** · ödeme geçmişi · vade uyarısı
 
-Sonraki fazlar: raporlar ve grafikler · CSV dışa aktarma · cilalama
+Faz 5 (tamamlandı): **raporlar** · kategori dağılımı · nakit akışı · CSV dışa aktarma
+
+Sonraki faz: cilalama (boş durumlar, erişilebilirlik denetimi, PWA)

@@ -22,6 +22,7 @@ const NAV = [
   { href: "/butce", label: "Bütçe" },
   { href: "/duzenli", label: "Düzenli" },
   { href: "/borclar", label: "Borç" },
+  { href: "/rapor", label: "Rapor" },
   { href: "/hesaplar", label: "Hesaplar" },
 ] as const;
 
