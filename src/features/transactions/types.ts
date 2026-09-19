@@ -1,4 +1,5 @@
 import type { DateStr } from "@/lib/date/types";
+import { isDateStr } from "@/lib/date/date";
 import type { Kurus } from "@/lib/money/types";
 
 export type TransactionKind = "income" | "expense" | "transfer";
@@ -120,6 +121,13 @@ export function validateTransaction(
 
   if (!input.date) {
     errors.date = "Tarih seçin.";
+  } else if (!isDateStr(input.date)) {
+    // `DateStr` markalı tip DERLEME zamanında korur; bu kontrol
+    // ÇALIŞMA zamanı savunmasıdır. Parser, form girdisi ya da
+    // ileride eklenecek bir API çağrısı "2026-02-31" gibi takvimde
+    // olmayan bir dize üretebilir — markalı tip bunu fark etmez,
+    // çünkü şekil doğru, değer yanlış.
+    errors.date = "Geçerli bir tarih seçin.";
   }
 
   if (!input.accountId) {

@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { qk } from "@/lib/query/keys";
+import { toUserError } from "@/lib/db/errors";
 import type { Kurus } from "@/lib/money/types";
 import {
   toAccount,
@@ -26,7 +27,7 @@ async function fetchAccounts(): Promise<Account[]> {
     .is("archived_at", null)
     .order("sort_order", { ascending: true });
 
-  if (error) throw new Error(`Hesaplar yüklenemedi: ${error.message}`);
+  if (error) throw toUserError(error, "Hesaplar yüklenemedi");
   return (data as AccountRow[]).map(toAccount);
 }
 
@@ -41,7 +42,7 @@ async function fetchBalances(): Promise<AccountBalance[]> {
     .from("account_balances")
     .select("account_id, balance_kurus");
 
-  if (error) throw new Error(`Bakiyeler yüklenemedi: ${error.message}`);
+  if (error) throw toUserError(error, "Bakiyeler yüklenemedi");
   return (data as AccountBalanceRow[]).map(toAccountBalance);
 }
 
@@ -95,7 +96,7 @@ export function useCreateAccount() {
         .select(ACCOUNT_COLUMNS)
         .single();
 
-      if (error) throw new Error(`Hesap eklenemedi: ${error.message}`);
+      if (error) throw toUserError(error, "Hesap eklenemedi");
       return toAccount(data as AccountRow);
     },
     onSuccess: () => {
@@ -118,7 +119,7 @@ export function useArchiveAccount() {
         .update({ archived_at: new Date().toISOString() })
         .eq("id", id);
 
-      if (error) throw new Error(`Hesap arşivlenemedi: ${error.message}`);
+      if (error) throw toUserError(error, "Hesap arşivlenemedi");
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.accounts() });

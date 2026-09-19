@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { qk } from "@/lib/query/keys";
+import { toUserError } from "@/lib/db/errors";
 import type { DateStr } from "@/lib/date/types";
 import {
   toTransaction,
@@ -26,7 +27,7 @@ async function fetchRange(from: DateStr, to: DateStr): Promise<Transaction[]> {
     .order("date", { ascending: false })
     .order("created_at", { ascending: false });
 
-  if (error) throw new Error(`İşlemler yüklenemedi: ${error.message}`);
+  if (error) throw toUserError(error, "İşlemler yüklenemedi");
   return (data as unknown as TransactionRow[]).map(toTransaction);
 }
 
@@ -39,7 +40,7 @@ async function fetchRecent(limit: number): Promise<Transaction[]> {
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (error) throw new Error(`İşlemler yüklenemedi: ${error.message}`);
+  if (error) throw toUserError(error, "İşlemler yüklenemedi");
   return (data as unknown as TransactionRow[]).map(toTransaction);
 }
 
@@ -81,7 +82,7 @@ export function useCreateTransaction() {
         .select(TX_COLUMNS)
         .single();
 
-      if (error) throw new Error(translateDbError(error.message));
+      if (error) throw toUserError(error, "İşlem kaydedilemedi");
       return toTransaction(data as unknown as TransactionRow);
     },
     onSuccess: () => {
@@ -97,7 +98,7 @@ export function useDeleteTransaction() {
     mutationFn: async (id: string) => {
       const supabase = createClient();
       const { error } = await supabase.from("transactions").delete().eq("id", id);
-      if (error) throw new Error(`İşlem silinemedi: ${error.message}`);
+      if (error) throw toUserError(error, "İşlem silinemedi");
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.transactions() });
@@ -106,25 +107,3 @@ export function useDeleteTransaction() {
   });
 }
 
-/**
- * Veritabanı kısıt hatalarını kullanıcı diline çevirir.
- *
- * Ham Postgres mesajı ("new row violates check constraint
- * transfer_shape") kullanıcıya hiçbir şey anlatmaz ve şema
- * ayrıntısını sızdırır.
- */
-function translateDbError(message: string): string {
-  if (message.includes("transfer_shape")) {
-    return "Transfer için hedef hesap seçilmeli ve kategori boş olmalı.";
-  }
-  if (message.includes("amount_kurus")) {
-    return "Tutar sıfırdan büyük olmalı.";
-  }
-  if (message.includes("Kategori türü")) {
-    return "Seçilen kategori işlem türüyle uyuşmuyor.";
-  }
-  if (message.includes("same_owner")) {
-    return "Seçilen hesap veya kategori bulunamadı.";
-  }
-  return `İşlem kaydedilemedi: ${message}`;
-}

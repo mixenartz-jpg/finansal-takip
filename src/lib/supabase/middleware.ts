@@ -6,6 +6,31 @@ import { supabaseAnonKey, supabaseUrl } from "./env";
 const PUBLIC_PATHS = ["/giris", "/auth"];
 
 /**
+ * Yol, açık yollardan biri mi?
+ *
+ * ── NEDEN DÜZ `startsWith` DEĞİL ──
+ *
+ * `pathname.startsWith("/giris")` yazmak `/girisyap`, `/auth-ayarlar`,
+ * `/authentication` gibi yolları da AÇIK sayar. Bugün böyle bir rota
+ * yok, ama ileride eklenecek tek bir rota bu dosyaya hiç
+ * dokunulmadan tam bir kimlik doğrulama açığına dönüşür — ve bunu
+ * fark ettirecek hiçbir hata mesajı olmaz.
+ *
+ * Segment sınırında eşleştirmek bu hata sınıfını yapısal olarak
+ * imkânsız kılar: ya yolun kendisi ya da altındaki bir yol.
+ */
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}
+
+/** Giriş ekranının kendisi mi? Aynı segment sınırı kuralı. */
+function isLoginPath(pathname: string): boolean {
+  return pathname === "/giris" || pathname.startsWith("/giris/");
+}
+
+/**
  * Oturumu tazeler ve korumalı yolları kapıda tutar.
  *
  * İKİ KURAL — bunlara uyulmazsa kullanıcı rastgele oturumdan düşer:
@@ -41,7 +66,7 @@ export async function updateSession(request: NextRequest) {
   const user = data?.claims;
 
   const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  const isPublic = isPublicPath(pathname);
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
@@ -50,7 +75,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Giriş yapmış kullanıcı giriş sayfasında durmasın.
-  if (user && pathname.startsWith("/giris")) {
+  if (user && isLoginPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

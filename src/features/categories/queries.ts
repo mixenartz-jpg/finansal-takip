@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { qk } from "@/lib/query/keys";
+import { toUserError } from "@/lib/db/errors";
 import { toCategory, type Category, type CategoryInput, type CategoryRow } from "./types";
 
 const CATEGORY_COLUMNS =
@@ -17,7 +18,7 @@ async function fetchCategories(): Promise<Category[]> {
     .order("kind", { ascending: true })
     .order("sort_order", { ascending: true });
 
-  if (error) throw new Error(`Kategoriler yüklenemedi: ${error.message}`);
+  if (error) throw toUserError(error, "Kategoriler yüklenemedi");
   return (data as CategoryRow[]).map(toCategory);
 }
 
@@ -40,13 +41,8 @@ export function useCreateCategory() {
         .select(CATEGORY_COLUMNS)
         .single();
 
-      if (error) {
-        // unique (user_id, kind, name) ihlali.
-        if (error.message.includes("duplicate key")) {
-          throw new Error("Bu isimde bir kategori zaten var.");
-        }
-        throw new Error(`Kategori eklenemedi: ${error.message}`);
-      }
+      // "duplicate key" dahil tanidik kisitlar ortak katmanda cevrilir.
+      if (error) throw toUserError(error, "Kategori eklenemedi");
       return toCategory(data as CategoryRow);
     },
     onSuccess: () => {
@@ -72,7 +68,7 @@ export function useUpdateCategoryKeywords() {
         .update({ keywords })
         .eq("id", id);
 
-      if (error) throw new Error(`Anahtar kelimeler kaydedilemedi: ${error.message}`);
+      if (error) throw toUserError(error, "Anahtar kelimeler kaydedilemedi");
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.categories() });

@@ -22,6 +22,7 @@ export default defineConfig({
         "src/lib/money/**/*.ts",
         "src/lib/date/**/*.ts",
         "src/lib/text/**/*.ts",
+        "src/lib/db/**/*.ts",
         "src/features/parser/**/*.ts",
       ],
       // Arayuz tanimlari ve veri sozlukleri: calistirilabilir dal yok,

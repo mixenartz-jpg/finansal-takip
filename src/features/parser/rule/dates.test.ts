@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import { findDate } from "./dates";
-import { asDateStr } from "@/lib/date/date";
+import { asDateStr, isDateStr } from "@/lib/date/date";
 
 // Sabit "bugün": 2026-09-19, bir CUMARTESİ. Testler bu güne kilitli
 // ki gerçek takvimin ilerlemesi testleri kırmasın.
@@ -61,6 +61,43 @@ describe("findDate -- hafta günleri", () => {
   });
   test("gelecek öneki ileri gider", () => {
     expect(d("gelecek pazartesi ödeyeceğim")).toBe("2026-09-21");
+  });
+});
+
+describe("findDate -- ★ takvimde olmayan tarih üretmez", () => {
+  /**
+   * "31 şubat" duyulduğunda 1..31 kontrolü geçer ve biçimlendirici
+   * sessizce "2026-02-31" üretirdi. Markalı `DateStr` tipi bunu
+   * fark etmez -- şekil doğru, değer yanlış. Üretilen her tarih
+   * `isDateStr` kapısından geçebilmeli.
+   */
+  const invalid = [
+    "31 şubat ödedim",
+    "30 şubat 100 tl",
+    "31 nisan 200 tl",
+    "31 haziran 50 tl",
+    "29 şubat 300 tl",   // 2026 artık yıl DEĞİL
+  ];
+
+  for (const text of invalid) {
+    test(`"${text}" geçerli bir takvim tarihi üretir`, () => {
+      const result = findDate(text, TODAY);
+      expect(isDateStr(result.date), `üretilen: ${result.date}`).toBe(true);
+    });
+  }
+
+  test("geçersiz gün/ay birleşiminde bugüne düşer, tarih uydurmaz", () => {
+    expect(d("31 şubat ödedim")).toBe("2026-09-19");
+  });
+
+  test("geçerli artık yıl tarihi kabul edilir", () => {
+    // 2024 artık yıldı; bugün 2026 olduğu için şubat geçmişte kaldı.
+    expect(isDateStr(findDate("28 şubat 100 tl", TODAY).date)).toBe(true);
+  });
+
+  test("ayın son günü sınırda kabul edilir", () => {
+    expect(d("30 nisan 100 tl")).toBe("2026-04-30");
+    expect(d("31 mart 100 tl")).toBe("2026-03-31");
   });
 });
 

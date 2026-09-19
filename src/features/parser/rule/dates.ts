@@ -1,5 +1,11 @@
 import { normalize } from "@/lib/text/normalize";
-import { addDays, isoWeekday, fromParts, toParts } from "@/lib/date/date";
+import {
+  addDays,
+  isoWeekday,
+  fromParts,
+  toParts,
+  daysInMonth,
+} from "@/lib/date/date";
 import type { DateStr } from "@/lib/date/types";
 import type { Span } from "../types";
 
@@ -115,10 +121,23 @@ export function findDate(rawText: string, today: DateStr): DateMatch {
     const day = Number(dayMonth[1]);
     const month = MONTHS[dayMonth[2]];
     const p = toParts(today);
-    if (day >= 1 && day <= 31) {
-      // Yıl belirtilmemişse: ay henüz gelmediyse geçen yıl varsayılır.
-      // "15 aralık" Ocak ayında söylenirse geçen aralık kastedilir.
-      const year = month > p.month ? p.year - 1 : p.year;
+
+    // Yıl belirtilmemişse: ay henüz gelmediyse geçen yıl varsayılır.
+    // "15 aralık" Ocak ayında söylenirse geçen aralık kastedilir.
+    const year = month > p.month ? p.year - 1 : p.year;
+
+    // ★ TAKVİM DOĞRULAMASI — `day <= 31` YETMEZ.
+    //
+    // "31 şubat" duyulduğunda 1..31 kontrolü geçer ve `fromParts`
+    // sessizce "2026-02-31" dizesini üretir. `fromParts` biçimlendirme
+    // yapar, DOĞRULAMA YAPMAZ: markalı `DateStr` tipinin kapısı olan
+    // `isDateStr` atlanmış olur ve takvimde olmayan bir tarih
+    // uygulamaya girer. Postgres bunu en sonunda reddeder ama o
+    // noktada kullanıcı zaten kaydet'e basmıştır.
+    //
+    // Artık yıl da buraya dahil: 2026 artık yıl olmadığı için
+    // "29 şubat" da geçersizdir ve `daysInMonth` bunu bilir.
+    if (day >= 1 && day <= daysInMonth(year, month)) {
       return {
         date: fromParts(year, month, day),
         confidence: 0.85,
@@ -126,6 +145,10 @@ export function findDate(rawText: string, today: DateStr): DateMatch {
         matchedPhrase: `${day} ${dayMonth[2]}`,
       };
     }
+
+    // Geçersiz gün/ay birleşimi: tarih UYDURULMAZ. Aşağıdaki
+    // kurallara düşer ve sonunda bugüne varsayılır; onay kartı
+    // kullanıcıya tarihi gösterir ve düzeltebilir.
   }
 
   // ── 4. Hafta günü adı: "pazartesi" → en son geçen pazartesi ──

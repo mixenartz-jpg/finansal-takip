@@ -51,6 +51,28 @@ describe("validateTransaction -- eksik alanlar", () => {
   });
 });
 
+describe("validateTransaction -- ★ takvim tarihi doğrulaması", () => {
+  test("takvimde olmayan tarih reddedilir", () => {
+    // Markalı tip derleme zamanında korur ama "2026-02-31" şekil
+    // olarak doğru; çalışma zamanı savunması gerekir.
+    const r = validateTransaction({ ...base, date: "2026-02-31" as never });
+    expect(r.valid).toBe(false);
+    expect(r.errors.date).toBeTruthy();
+  });
+  test("artık yıl olmayan yılda 29 şubat reddedilir", () => {
+    expect(validateTransaction({ ...base, date: "2026-02-29" as never }).errors.date).toBeTruthy();
+  });
+  test("bozuk biçimli tarih reddedilir", () => {
+    expect(validateTransaction({ ...base, date: "19-09-2026" as never }).errors.date).toBeTruthy();
+  });
+  test("geçerli tarih kabul edilir", () => {
+    expect(validateTransaction({ ...base, date: asDateStr("2026-02-28") }).valid).toBe(true);
+  });
+  test("geçerli artık yıl tarihi kabul edilir", () => {
+    expect(validateTransaction({ ...base, date: asDateStr("2024-02-29") }).valid).toBe(true);
+  });
+});
+
 describe("validateTransaction -- tutar kuralları", () => {
   test("sıfır tutar reddedilir -- SQL check (amount_kurus > 0) karşılığı", () => {
     expect(validateTransaction({ ...base, amountKurus: asKurus(0) }).errors.amountKurus).toBeTruthy();
