@@ -11,6 +11,8 @@ import { startOfMonth, todayStr } from "@/lib/date/date";
 import { useBudgetProgress } from "@/features/budgets/queries";
 import { summarizeBudgets } from "@/features/budgets/progress";
 import { DueBanner } from "@/features/recurring/DueBanner";
+import { useDebtBalances } from "@/features/debts/queries";
+import { summarizeDebts } from "@/features/debts/remaining";
 import Link from "next/link";
 import { formatMonthTitle } from "@/lib/ui/tr";
 import { Skeleton } from "@/components/ui";
@@ -35,6 +37,8 @@ export default function PanelPage() {
   const monthStart = startOfMonth(today);
   const budgets = useBudgetProgress(monthStart);
   const budgetSummary = summarizeBudgets(budgets.data ?? []);
+  const debts = useDebtBalances();
+  const debtSummary = summarizeDebts(debts.data ?? [], today);
 
   const totalBalance = accounts.data.length
     ? sumKurus(accounts.data.map((a) => a.balanceKurus))
@@ -99,6 +103,32 @@ export default function PanelPage() {
             {budgetSummary.warningCount === 1
               ? "1 kategori bütçe limitine yaklaştı"
               : `${budgetSummary.warningCount} kategori bütçe limitine yaklaştı`}
+          </p>
+        </Link>
+      )}
+
+      {/* Vadesi geçen/yaklaşan borçlar. Bütçe uyarısının ALTINDA:
+          bütçe bu ayın gidişatı, borç ise tarihli bir yükümlülük —
+          ikisi de bilgi ama bütçe daha sık bakılan. */}
+      {debtSummary.needsAttention.length > 0 && (
+        <Link
+          href="/borclar"
+          className={`block rounded-[var(--r-lg)] px-3 py-2.5 transition-opacity hover:opacity-80 ${
+            debtSummary.overdueCount > 0
+              ? "bg-[var(--expense-soft)]"
+              : "bg-[var(--warning-soft)]"
+          }`}
+        >
+          <p
+            className={`text-sm font-medium ${
+              debtSummary.overdueCount > 0
+                ? "text-[var(--expense)]"
+                : "text-[var(--warning)]"
+            }`}
+          >
+            {debtSummary.overdueCount > 0
+              ? `${debtSummary.overdueCount} kaydın vadesi geçti`
+              : `${debtSummary.dueSoonCount} kaydın vadesi yaklaşıyor`}
           </p>
         </Link>
       )}

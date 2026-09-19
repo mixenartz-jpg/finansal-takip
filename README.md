@@ -42,6 +42,7 @@ Supabase panelinde **SQL Editor**'ü açın ve `supabase/migrations/` altındaki
 0005_seed_categories.sql     → yeni kullanıcıya varsayılan kategoriler
 0006_budgets.sql             → aylık bütçe limitleri + ilerleme görünümü
 0007_recurring.sql           → tekrarlayan işlem şablonları
+0008_debts.sql               → borç / alacak takibi
 ```
 
 Sıra **önemlidir** — her dosya öncekine dayanır.
@@ -143,6 +144,30 @@ Uygulamayı bir süre açmadıysanız biriken vadelerin hepsi listelenir, tek te
 
 ---
 
+## Borç / alacak
+
+Kime borçlu olduğunuzu, kimin size borçlu olduğunu ve ne kadarının ödendiğini takip eder.
+
+**Ödeme eklerken bir seçim yaparsınız:** *"Bu ödeme hesabımdan çıktı"* kutusunu işaretlerseniz aynı anda bir gider (alacakta gelir) işlemi de oluşur ve bakiyeniz değişir. İşaretlemezseniz yalnızca borç defteri güncellenir — nakit elden verdiğiniz durum.
+
+Bu seçenek olmasaydı: her ödemeyi otomatik işleme çevirmek elden verilen ödemelerde bakiyeyi yanlış düşürürdü; hiç çevirmemek aynı ödemeyi iki kez girmeyi gerektirirdi.
+
+**Vade takibi:** isteğe bağlı son ödeme tarihi girersiniz. Vadesi yaklaşan (7 gün) ve geçen kayıtlar hem borç sayfasında hem panelde uyarı olarak çıkar.
+
+| Durum | Gösterim |
+|---|---|
+| Hiç ödeme yok | Kalan tutar |
+| Kısmi ödeme | İlerleme çubuğu + "1.200 ₺ ödendi" |
+| Vadesi yaklaşıyor | Sarı rozet + "3 gün kaldı" |
+| Vadesi geçti | Kırmızı rozet + "14 gün gecikti" |
+| Kapandı | Soluk + "Kapandı" rozeti |
+
+**Kapanma bir sütun değil, türetilir:** ödemeler toplamı anaparaya ulaştığında borç kapanmış sayılır. Ayrı bir "kapandı" işareti, bir ödeme silindiğinde yalan söylerdi.
+
+Fazla ödeme **engellenmez**, uyarılır — faizli bir borç kalan anaparadan fazla ödenebilir.
+
+---
+
 ## Yapay zeka eklemek (isteğe bağlı)
 
 Kural motoru AI olmadan çalışır. Zor cümleler için Gemini eklemek isterseniz **arayüz hazır bekliyor**:
@@ -201,4 +226,6 @@ Faz 2 (tamamlandı): **aylık bütçe limitleri** · ilerleme çubuğu · aşım
 
 Faz 3 (tamamlandı): **tekrarlayan işlemler** · vade onayı · duraklatma
 
-Sonraki fazlar: borç/alacak takibi · raporlar ve grafikler · CSV dışa aktarma · cilalama
+Faz 4 (tamamlandı): **borç / alacak takibi** · ödeme geçmişi · vade uyarısı
+
+Sonraki fazlar: raporlar ve grafikler · CSV dışa aktarma · cilalama

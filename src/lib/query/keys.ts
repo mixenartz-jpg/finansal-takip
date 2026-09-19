@@ -36,6 +36,15 @@ export const qk = {
    */
   recurring: () => ["recurring"] as const,
 
+  /*
+   * Borc/alacak. `debtPayments` AYRI onek altinda: bir borcun
+   * odemelerini acmak tum borc listesini tazelemeyi gerektirmez.
+   * Ama odeme EKLEMEK `qk.debts()`'i gecersiz kilar -- kalan tutar
+   * degisti.
+   */
+  debts: () => ["debts"] as const,
+  debtPayments: (debtId: string) => ["debt-payments", debtId] as const,
+
   transactions: () => ["transactions"] as const,
   transactionsRange: (from: DateStr, to: DateStr) =>
     ["transactions", "range", from, to] as const,
