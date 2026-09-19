@@ -1,0 +1,205 @@
+@import "tailwindcss";
+
+/*
+ * Hesap Takip — tasarım token'ları
+ *
+ * ── SAHNE ──
+ *
+ * Akşam, telefonda, gün bitmeden "bugün ne harcadım" diye bakan biri.
+ * Hesap defteri gibi sakin, banka uygulaması gibi değil. Işık açık,
+ * rakamlar net, hiçbir şey parlamıyor.
+ *
+ * ── TOKEN SAHİPLİĞİ ──
+ *
+ * HAM DEĞERLERİN TAMAMI `:root`'ta. `@theme` YALNIZCA Tailwind
+ * yardımcı sınıfı üretmesi gereken token'lar için takma ad tutar.
+ *
+ * Gerekçe: Tailwind v4 `@theme` değişkenlerini tree-shake eder — bir
+ * değişken hiçbir sınıf adında geçmiyorsa CSS çıktısına HİÇ yazılmaz.
+ * Elle yazılmış CSS'ten okunan bir token `@theme`'de olsaydı sessizce
+ * boş kalır ve hiçbir derleme hatası vermezdi.
+ *
+ * ── RENK STRATEJİSİ: RESTRAINED ──
+ *
+ * Product register'ın tabanı. Tek marka rengi (lacivert) + semantik
+ * gelir/gider çifti. Marka rengi DEKORASYON DEĞİL: yalnızca birincil
+ * eylem, seçili durum ve odak halkası.
+ *
+ * Kırmızı marka rengi OLARAK KULLANILMAZ. Bir finans uygulamasında
+ * kırmızı "gider/zarar" demektir; arayüzü kırmızıya boyamak her ekranı
+ * "zarardasın" hissine sokar. Kırmızı yalnızca gider tutarlarına ayrılmış.
+ */
+
+:root {
+  /* ── Yüzeyler ──
+   * Zemin SAF BEYAZ. Krem/bej/"paper" tonları 2026'nın doymuş AI
+   * klişesi; sıcaklık markada ve tipografide taşınır, zeminde değil.
+   */
+  --bg: oklch(1 0 0);
+  --surface: oklch(0.985 0.002 265);
+  --surface-2: oklch(0.965 0.004 265);
+  --border: oklch(0.905 0.005 265);
+  --border-strong: oklch(0.82 0.008 265);
+
+  /* ── Mürekkep ──
+   * Gövde metni --ink-2 kullanır ve beyaz üzerinde 7:1'in üstünde
+   * kontrast verir. "Zarafet için açık gri" AI tasarımlarının en sık
+   * okunabilirlik hatası; buraya girmiyor.
+   */
+  --ink: oklch(0.21 0.012 265);
+  --ink-2: oklch(0.42 0.011 265);
+  --ink-3: oklch(0.53 0.010 265);
+
+  /* ── Marka: lacivert/indigo ──
+   * Birincil buton, seçili sekme, odak halkası. Başka hiçbir yerde.
+   */
+  --brand: oklch(0.47 0.16 266);
+  --brand-hover: oklch(0.42 0.17 266);
+  --brand-soft: oklch(0.95 0.025 266);
+  --brand-ink: oklch(0.36 0.15 266);
+
+  /* ── Semantik: para yönü ──
+   * SADECE tutar ve yön göstergelerinde. Buton, kenarlık, arka plan
+   * süslemesi olarak kullanılmaz.
+   */
+  --income: oklch(0.48 0.13 152);
+  --income-soft: oklch(0.955 0.03 152);
+  --expense: oklch(0.52 0.19 25);
+  --expense-soft: oklch(0.96 0.03 25);
+
+  /* ── Durum ──
+   * Uyarı L=0.50: L=0.62'de kendi yumuşak zemininde yalnızca 3.28:1
+   * veriyordu ve bütçe aşımı uyarısı okunmaz olurdu. Değerler
+   * `colors.contrast.test.ts` tarafından doğrulanıyor.
+   */
+  --warning: oklch(0.50 0.13 75);
+  --warning-soft: oklch(0.96 0.04 75);
+  --danger: oklch(0.52 0.19 25);
+
+  /* ── Yarıçap ──
+   * Kartlar 12px'te tavan yapar. 24/32px "insanely rounded" kart
+   * yasaklı; ürün arayüzü yumuşak değil, net olmalı.
+   */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-full: 999px;
+
+  /* ── Hareket ──
+   * 150–250ms. Kullanıcı bir işin içinde; koreografi izlemek
+   * istemiyor.
+   */
+  --dur-fast: 120ms;
+  --dur: 180ms;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ── Z-ekseni: anlamlı ölçek, rastgele 9999 yok ── */
+  --z-sticky: 10;
+  --z-overlay: 20;
+  --z-sheet: 30;
+  --z-toast: 40;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-income: var(--income);
+  --color-income-soft: var(--income-soft);
+  --color-expense: var(--expense);
+  --color-expense-soft: var(--expense-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-full: var(--r-full);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink-2);
+    font-family: var(--font-sans);
+    /* Product register: SABİT rem ölçeği, clamp yok. Kullanıcı sabit
+     * DPI'da bakıyor; akışkan tipografi burada iyileştirmiyor. */
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    color: var(--ink);
+    font-weight: 600;
+    letter-spacing: -0.011em;
+    text-wrap: balance;
+  }
+
+  h1 { font-size: 1.5rem; line-height: 1.25; }
+  h2 { font-size: 1.125rem; line-height: 1.3; }
+  h3 { font-size: 1rem; line-height: 1.4; }
+
+  /* ── Rakamlar ──
+   * Tabular figürler ŞART: tutar sütunu hizalanmazsa göz listeyi
+   * tarayamaz ve "hangisi büyük" sorusu okumakla değil, saymakla
+   * cevaplanır.
+   */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  /* ── Odak ──
+   * Klavye kullanıcısı için görünür, fare kullanıcısı için sessiz.
+   */
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+    border-radius: var(--r-sm);
+  }
+
+  button, input, select, textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* ── Azaltılmış hareket ──
+ * İsteğe bağlı değil. Her animasyonun bir alternatifi olmalı.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
