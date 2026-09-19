@@ -128,14 +128,13 @@ function TransactionRow({
              * onu YOK SAYAR ve ikonun anlamı kaybolur (axe:
              * aria-prohibited-attr).
              *
-             * `title` de yeterli değil: klavye ve dokunmatikte
-             * görünmez. Bunun yerine görsel olarak gizli ama
-             * okunabilir gerçek metin kullanılıyor.
+             * `title` de kullanılmıyor: klavye ve dokunmatikte
+             * görünmez, ÜSTELİK aynı metni hem `title` hem gizli
+             * metin olarak vermek bazı ekran okuyucularda çift
+             * okumaya yol açar. Tek kaynak: görsel olarak gizli
+             * ama gerçek metin.
              */
-            <span
-              title={tx.voiceTranscript ?? "Sesle eklendi"}
-              className="shrink-0 text-[var(--ink-3)]"
-            >
+            <span className="shrink-0 text-[var(--ink-3)]">
               <MicGlyph />
               <span className="sr-only">
                 Sesle eklendi
