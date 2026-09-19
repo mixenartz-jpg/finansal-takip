@@ -24,6 +24,7 @@ export default defineConfig({
         "src/lib/text/**/*.ts",
         "src/lib/db/**/*.ts",
         "src/features/parser/**/*.ts",
+        "src/features/budgets/progress.ts",
       ],
       // Arayuz tanimlari ve veri sozlukleri: calistirilabilir dal yok,
       // kapsam yuzdesini sulandirirlar.

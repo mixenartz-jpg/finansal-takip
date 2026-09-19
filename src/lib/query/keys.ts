@@ -21,6 +21,14 @@ export const qk = {
 
   categories: () => ["categories"] as const,
 
+  /*
+   * Butceler. `budgetsMonth` bu onegin ALTINDA: bir islem
+   * eklendiginde hangi aylarin onbellekte oldugunu bilmeye gerek
+   * kalmadan `qk.budgets()` ile hepsi tazelenir.
+   */
+  budgets: () => ["budgets"] as const,
+  budgetsMonth: (month: DateStr) => ["budgets", "month", month] as const,
+
   transactions: () => ["transactions"] as const,
   transactionsRange: (from: DateStr, to: DateStr) =>
     ["transactions", "range", from, to] as const,

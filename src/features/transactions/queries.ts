@@ -88,6 +88,10 @@ export function useCreateTransaction() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.transactions() });
       void qc.invalidateQueries({ queryKey: qk.balances() });
+      // Yeni/silinen bir gider o ayin butce ilerlemesini degistirir.
+      // Bu satir unutulsaydi kullanici "200 TL harcadim ama butce
+      // cubugu ayni" gorurdu -- bakiye icin gecerli olan ayni tuzak.
+      void qc.invalidateQueries({ queryKey: qk.budgets() });
     },
   });
 }
@@ -103,6 +107,10 @@ export function useDeleteTransaction() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.transactions() });
       void qc.invalidateQueries({ queryKey: qk.balances() });
+      // Yeni/silinen bir gider o ayin butce ilerlemesini degistirir.
+      // Bu satir unutulsaydi kullanici "200 TL harcadim ama butce
+      // cubugu ayni" gorurdu -- bakiye icin gecerli olan ayni tuzak.
+      void qc.invalidateQueries({ queryKey: qk.budgets() });
     },
   });
 }

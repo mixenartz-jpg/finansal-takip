@@ -19,6 +19,7 @@ import { DictationSheet } from "@/features/dictation/DictationSheet";
 const NAV = [
   { href: "/", label: "Panel" },
   { href: "/islemler", label: "İşlemler" },
+  { href: "/butce", label: "Bütçe" },
   { href: "/hesaplar", label: "Hesaplar" },
 ] as const;
 

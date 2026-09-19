@@ -17,6 +17,7 @@ import {
   toDateStr,
   todayStr,
   toParts,
+  addMonths,
 } from "./date";
 import { APP_TIMEZONE } from "./types";
 
@@ -236,5 +237,59 @@ describe("eachDay", () => {
 
   it("ters aralıkta boş dizi verir", () => {
     expect(eachDay(d("2026-08-05"), d("2026-08-03"))).toEqual([]);
+  });
+});
+
+describe("addMonths -- ay aritmetiği", () => {
+  it("bir ay ileri", () => {
+    expect(addMonths(asDateStr("2026-09-19"), 1)).toBe("2026-10-01");
+  });
+  it("bir ay geri", () => {
+    expect(addMonths(asDateStr("2026-09-19"), -1)).toBe("2026-08-01");
+  });
+  it("sonuç daima ayın 1'i", () => {
+    expect(addMonths(asDateStr("2026-09-30"), 0)).toBe("2026-09-01");
+  });
+  it("ocaktan geri yıl sınırını geçer", () => {
+    expect(addMonths(asDateStr("2026-01-15"), -1)).toBe("2025-12-01");
+  });
+  it("aralıktan ileri yıl sınırını geçer", () => {
+    expect(addMonths(asDateStr("2026-12-15"), 1)).toBe("2027-01-01");
+  });
+  it("birden fazla yıl geri", () => {
+    expect(addMonths(asDateStr("2027-01-15"), -13)).toBe("2025-12-01");
+  });
+  it("birden fazla yıl ileri", () => {
+    expect(addMonths(asDateStr("2026-01-15"), 25)).toBe("2028-02-01");
+  });
+  it("★ 31 günlük ayda addDays(-30) tuzağına düşmez", () => {
+    // addDays(-30) 31 Mart'tan 1 Mart'a düşmez, 1 Şubat'a düşerdi.
+    expect(addMonths(asDateStr("2026-03-31"), -1)).toBe("2026-02-01");
+  });
+  it("şubattan ileri", () => {
+    expect(addMonths(asDateStr("2026-02-28"), 1)).toBe("2026-03-01");
+  });
+});
+
+describe("addMonths -- negatif modulo kenar durumu", () => {
+  it("yıl 0 altına inerken geçerli ay üretir", () => {
+    // JS'te (-1 % 12) === -1; düz aritmetik ay 0 üretirdi.
+    const r = addMonths(asDateStr("0001-01-15"), -13);
+    expect(r).toMatch(/^-?\d+-(0[1-9]|1[0-2])-01$/);
+  });
+  it("çok geriye giderken ay daima 1..12", () => {
+    for (const delta of [-1, -12, -13, -25, -100, -1000]) {
+      const r = addMonths(asDateStr("2026-06-15"), delta);
+      const month = Number(r.split("-")[1]);
+      expect(month, `delta=${delta} -> ${r}`).toBeGreaterThanOrEqual(1);
+      expect(month, `delta=${delta} -> ${r}`).toBeLessThanOrEqual(12);
+    }
+  });
+  it("çok ileriye giderken ay daima 1..12", () => {
+    for (const delta of [1, 12, 13, 25, 100, 1000]) {
+      const month = Number(addMonths(asDateStr("2026-06-15"), delta).split("-")[1]);
+      expect(month).toBeGreaterThanOrEqual(1);
+      expect(month).toBeLessThanOrEqual(12);
+    }
   });
 });

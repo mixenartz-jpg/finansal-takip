@@ -147,6 +147,32 @@ export function startOfMonth(d: DateStr): DateStr {
   return fromParts(year, month, 1);
 }
 
+/**
+ * Aya ay ekler/çıkarır; sonuç daima ayın 1'idir.
+ *
+ * ── NEDEN `addDays` DEĞİL ──
+ *
+ * "Bir ay geri" için `addDays(-30)` yazmak 31 günlük aylarda yanlış
+ * aya düşer: 31 Mart'tan 30 gün geri 1 Mart değil, 1 Şubat'tır.
+ * Ay aritmetiği GÜN üzerinden değil, (yıl×12 + ay) üzerinden
+ * yapılmalı — bu biçimde yıl sınırı geçişi de kendiliğinden doğru
+ * olur (Ocak −1 → önceki Aralık).
+ */
+export function addMonths(d: DateStr, delta: number): DateStr {
+  const { year, month } = toParts(d);
+  const total = year * 12 + (month - 1) + delta;
+
+  // JS'te `%` negatif sayılarda NEGATİF kalan döndürür (-1 % 12 === -1),
+  // Python'daki gibi değil. Düz `(total % 12) + 1` yazmak yıl 0'ın
+  // altına inildiğinde geçersiz ay (0 veya negatif) üretir. Uygulamada
+  // oraya inmek imkânsıza yakın ama matematiği yanlış bırakmanın
+  // kazancı yok: kalanı pozitif aralığa taşıyoruz.
+  const monthIndex = ((total % 12) + 12) % 12;
+  const resultYear = Math.floor(total / 12);
+
+  return fromParts(resultYear, monthIndex + 1, 1);
+}
+
 /** Ayın son günü. */
 export function endOfMonth(d: DateStr): DateStr {
   const { year, month } = toParts(d);

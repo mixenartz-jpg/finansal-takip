@@ -40,6 +40,7 @@ Supabase panelinde **SQL Editor**'ü açın ve `supabase/migrations/` altındaki
 0003_triggers.sql            → user_id damgası, kategori türü denetimi
 0004_views.sql               → bakiye ve rapor görünümleri
 0005_seed_categories.sql     → yeni kullanıcıya varsayılan kategoriler
+0006_budgets.sql             → aylık bütçe limitleri + ilerleme görünümü
 ```
 
 Sıra **önemlidir** — her dosya öncekine dayanır.
@@ -98,6 +99,27 @@ HTTPS veya `localhost` gerekir — tarayıcı güvensiz bağlantıda mikrofona i
 
 ---
 
+## Bütçe
+
+Kategori başına **aylık** harcama limiti koyarsınız; harcadıkça ne kadar kaldığını görürsünüz.
+
+**Bütçe bir hedeftir, yasak değil.** Limiti aşan bir işlem normal şekilde kaydedilir — gerçekten yapılmış bir harcamayı kayıt dışı bırakmak tüm bakiyeleri yalancı yapardı. Aşım yalnızca *görünür* olur:
+
+| Durum | Gösterim |
+|---|---|
+| Limitin %85'inin altında | Nötr çubuk, "3.200 ₺ kaldı" |
+| %85 ve üstü | Sarı çubuk, "380 ₺ kaldı" |
+| Limit tam doldu | Kırmızı çubuk, "Limit doldu" |
+| Limit aşıldı | Kırmızı çubuk, "815 ₺ aştınız" |
+
+Aşım varsa panelde de bir uyarı çıkar, bütçe sayfasına girmeden görürsünüz.
+
+**Bütçeler aya özeldir.** Her ay kendi limitlerini taşır; yeni ay başında **"Geçen aydan kopyala"** ile tek tıkla taşıyabilirsiniz. Otomatik kopyalanmaz — geçen ay tatil için yükselttiğiniz bir limit bu aya sessizce taşınmamalı.
+
+Bütçe yalnızca **gider** kategorilerine konur. "Maaş bütçem 50.000" bir hedef değil dilektir, ve aşım uyarısı ters anlam taşırdı (çok maaş almak kötü değildir).
+
+---
+
 ## Yapay zeka eklemek (isteğe bağlı)
 
 Kural motoru AI olmadan çalışır. Zor cümleler için Gemini eklemek isterseniz **arayüz hazır bekliyor**:
@@ -152,4 +174,6 @@ npm run e2e            # uçtan uca testler (Playwright)
 
 Faz 1 (tamamlandı): auth · hesaplar · kategoriler · işlemler · **sesli giriş**
 
-Sonraki fazlar: bütçe limitleri · tekrarlayan işlemler · borç/alacak takibi · raporlar ve grafikler · CSV dışa aktarma
+Faz 2 (tamamlandı): **aylık bütçe limitleri** · ilerleme çubuğu · aşım uyarısı
+
+Sonraki fazlar: tekrarlayan işlemler · borç/alacak takibi · raporlar ve grafikler · CSV dışa aktarma

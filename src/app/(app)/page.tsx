@@ -8,6 +8,9 @@ import { formatTRYCompact } from "@/lib/money/money";
 import { sumKurus, asKurus } from "@/lib/money/money";
 import type { Kurus } from "@/lib/money/types";
 import { startOfMonth, todayStr } from "@/lib/date/date";
+import { useBudgetProgress } from "@/features/budgets/queries";
+import { summarizeBudgets } from "@/features/budgets/progress";
+import Link from "next/link";
 import { formatMonthTitle } from "@/lib/ui/tr";
 import { Skeleton } from "@/components/ui";
 import { ACCOUNT_KIND_LABELS } from "@/features/accounts/types";
@@ -29,6 +32,8 @@ export default function PanelPage() {
 
   const today = todayStr();
   const monthStart = startOfMonth(today);
+  const budgets = useBudgetProgress(monthStart);
+  const budgetSummary = summarizeBudgets(budgets.data ?? []);
 
   const totalBalance = accounts.data.length
     ? sumKurus(accounts.data.map((a) => a.balanceKurus))
@@ -58,6 +63,39 @@ export default function PanelPage() {
           </p>
         )}
       </section>
+
+      {/* ── Bütçe uyarısı ──
+          Bütçe bir hedeftir, harcamayı ENGELLEMEZ (ürün kararı).
+          Aşım burada görünür olur; kullanıcı bütçe sayfasına girmeden
+          "bu ay sınırı aştım mı" sorusunun cevabını alır. */}
+      {budgetSummary.overCount > 0 && (
+        <Link
+          href="/butce"
+          className="block rounded-[var(--r-lg)] bg-[var(--expense-soft)] px-3 py-2.5 transition-opacity hover:opacity-80"
+        >
+          <p className="text-sm font-medium text-[var(--expense)]">
+            {budgetSummary.overCount === 1
+              ? "1 kategoride bütçe aşıldı"
+              : `${budgetSummary.overCount} kategoride bütçe aşıldı`}
+          </p>
+          <p className="tnum text-[13px] text-[var(--expense)]">
+            Toplam {formatTRYCompact(budgetSummary.totalOverspendKurus)} aşım
+          </p>
+        </Link>
+      )}
+
+      {budgetSummary.overCount === 0 && budgetSummary.warningCount > 0 && (
+        <Link
+          href="/butce"
+          className="block rounded-[var(--r-lg)] bg-[var(--warning-soft)] px-3 py-2.5 transition-opacity hover:opacity-80"
+        >
+          <p className="text-sm font-medium text-[var(--warning)]">
+            {budgetSummary.warningCount === 1
+              ? "1 kategori bütçe limitine yaklaştı"
+              : `${budgetSummary.warningCount} kategori bütçe limitine yaklaştı`}
+          </p>
+        </Link>
+      )}
 
       <section aria-labelledby="ay-baslik">
         <h2 id="ay-baslik" className="mb-2 text-[13px] font-medium text-[var(--ink-3)]">
