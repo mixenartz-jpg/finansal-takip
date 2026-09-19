@@ -25,6 +25,7 @@ export default defineConfig({
         "src/lib/db/**/*.ts",
         "src/features/parser/**/*.ts",
         "src/features/budgets/progress.ts",
+        "src/features/recurring/occurrence.ts",
       ],
       // Arayuz tanimlari ve veri sozlukleri: calistirilabilir dal yok,
       // kapsam yuzdesini sulandirirlar.

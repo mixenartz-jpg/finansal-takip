@@ -10,6 +10,7 @@ import type { Kurus } from "@/lib/money/types";
 import { startOfMonth, todayStr } from "@/lib/date/date";
 import { useBudgetProgress } from "@/features/budgets/queries";
 import { summarizeBudgets } from "@/features/budgets/progress";
+import { DueBanner } from "@/features/recurring/DueBanner";
 import Link from "next/link";
 import { formatMonthTitle } from "@/lib/ui/tr";
 import { Skeleton } from "@/components/ui";
@@ -63,6 +64,11 @@ export default function PanelPage() {
           </p>
         )}
       </section>
+
+      {/* Vadesi gelen düzenli işlemler — bütçe uyarısının ÜSTÜNDE:
+          vade bir EYLEM ister (onayla/atla), bütçe uyarısı yalnızca
+          bilgidir. Eylem isteyen önce görünür. */}
+      <DueBanner />
 
       {/* ── Bütçe uyarısı ──
           Bütçe bir hedeftir, harcamayı ENGELLEMEZ (ürün kararı).

@@ -15,7 +15,7 @@ import {
 
 const TX_COLUMNS =
   "id, kind, amount_kurus, date, account_id, counter_account_id, " +
-  "category_id, note, voice_transcript, source, created_at";
+  "category_id, note, voice_transcript, source, recurring_id, created_at";
 
 async function fetchRange(from: DateStr, to: DateStr): Promise<Transaction[]> {
   const supabase = createClient();

@@ -28,6 +28,8 @@ export interface Transaction {
   note: string | null;
   voiceTranscript: string | null;
   source: TransactionSource;
+  /** Bu islemi ureten duzenli islem sablonu (varsa). */
+  recurringId: string | null;
   createdAt: string;
 }
 
@@ -56,6 +58,7 @@ export interface TransactionRow {
   note: string | null;
   voice_transcript: string | null;
   source: TransactionSource;
+  recurring_id: string | null;
   created_at: string;
 }
 
@@ -71,6 +74,7 @@ export function toTransaction(row: TransactionRow): Transaction {
     note: row.note,
     voiceTranscript: row.voice_transcript,
     source: row.source,
+    recurringId: row.recurring_id,
     createdAt: row.created_at,
   };
 }
@@ -86,6 +90,7 @@ export function toRowInput(input: TransactionInput): Omit<TransactionRow, "id" |
     note: input.note,
     voice_transcript: input.voiceTranscript,
     source: input.source,
+    recurring_id: null,
   };
 }
 

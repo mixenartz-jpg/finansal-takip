@@ -29,6 +29,13 @@ export const qk = {
   budgets: () => ["budgets"] as const,
   budgetsMonth: (month: DateStr) => ["budgets", "month", month] as const,
 
+  /*
+   * Duzenli islem sablonlari. Vade listesi bu veriden TURETILIR
+   * (occurrence.ts), ayri bir sorgu degil -- sunucuda vade diye bir
+   * kayit yok, yalnizca kural + son calisma damgasi var.
+   */
+  recurring: () => ["recurring"] as const,
+
   transactions: () => ["transactions"] as const,
   transactionsRange: (from: DateStr, to: DateStr) =>
     ["transactions", "range", from, to] as const,

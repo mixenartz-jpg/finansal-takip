@@ -54,3 +54,31 @@ export function formatShortDate(date: DateStr): string {
   const { year, month, day } = toParts(date);
   return `${String(day).padStart(2, "0")}.${String(month).padStart(2, "0")}.${year}`;
 }
+
+/**
+ * Ayın gününe 3. tekil iyelik eki ekler: 1 → "1'i", 3 → "3'ü",
+ * 20 → "20'si".
+ *
+ * ── NEDEN TABLO, KURAL DEĞİL ──
+ *
+ * Ek, sayının OKUNUŞUNUN son ünlüsüne göre değişir — rakamına göre
+ * değil. "2" iki diye okunur ve ünlüyle bittiği için araya kaynaştırma
+ * "s"si girer ("2'si"); "3" üç diye okunur, kalın/ince uyumundan "ü"
+ * alır ("3'ü"). Rakamdan kural türetmek imkânsız, okunuşu bilmek
+ * gerekiyor.
+ *
+ * 1-31 kapalı bir küme olduğu için tablo en doğru ve en okunur çözüm.
+ */
+const DAY_SUFFIX: Readonly<Record<number, string>> = {
+  1: "i", 2: "si", 3: "ü", 4: "ü", 5: "i", 6: "sı", 7: "si", 8: "i",
+  9: "u", 10: "u", 11: "i", 12: "si", 13: "ü", 14: "ü", 15: "i",
+  16: "sı", 17: "si", 18: "i", 19: "u", 20: "si", 21: "i", 22: "si",
+  23: "ü", 24: "ü", 25: "i", 26: "sı", 27: "si", 28: "i", 29: "u",
+  30: "u", 31: "i",
+};
+
+/** `"15'i"`, `"3'ü"`, `"20'si"` — ayın gününü ek ile yazar. */
+export function dayWithSuffix(day: number): string {
+  const suffix = DAY_SUFFIX[day] ?? "i";
+  return `${day}'${suffix}`;
+}

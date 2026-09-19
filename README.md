@@ -41,6 +41,7 @@ Supabase panelinde **SQL Editor**'ü açın ve `supabase/migrations/` altındaki
 0004_views.sql               → bakiye ve rapor görünümleri
 0005_seed_categories.sql     → yeni kullanıcıya varsayılan kategoriler
 0006_budgets.sql             → aylık bütçe limitleri + ilerleme görünümü
+0007_recurring.sql           → tekrarlayan işlem şablonları
 ```
 
 Sıra **önemlidir** — her dosya öncekine dayanır.
@@ -120,6 +121,28 @@ Bütçe yalnızca **gider** kategorilerine konur. "Maaş bütçem 50.000" bir he
 
 ---
 
+## Düzenli işlemler
+
+Kira, maaş, abonelik gibi tekrar eden işlemleri bir kez tanımlarsınız; vakti gelince onayınıza sunulur.
+
+**Otomatik kaydedilmez.** Vadesi gelen işlem panelde ve Düzenli sayfasında listelenir, üç seçeneğiniz olur:
+
+| Seçenek | Ne olur |
+|---|---|
+| **Onayla** | İşlem kaydedilir, bakiye ve bütçe güncellenir |
+| **Atla** | Vade kapanır ama işlem oluşmaz — "bu ay ödemedim" |
+| Dokunmamak | Listede bekler |
+
+Bu bilinçli bir tercih: kirayı geç ödediyseniz ya da tutar değiştiyse, otomatik kayıt bakiyenizi yalancı yapar ve fark etmeniz haftalar alır.
+
+**Sıklıklar:** haftalık · aylık · yıllık. Başlangıç tarihi zorunlu, bitiş tarihi isteğe bağlı (boş = süresiz). Kuralı geçici olarak **duraklatabilirsiniz**.
+
+**Ayın 31'i sorunu çözülmüş:** "Her ayın 31'i" kuralı şubatta 28'e (artık yılda 29'a) kırpılır, ama sonraki ay yine 31'e döner — kural kalıcı olarak kaymaz. Formda 31 seçeneği "Son gün" diye görünür.
+
+Uygulamayı bir süre açmadıysanız biriken vadelerin hepsi listelenir, tek tek onaylarsınız.
+
+---
+
 ## Yapay zeka eklemek (isteğe bağlı)
 
 Kural motoru AI olmadan çalışır. Zor cümleler için Gemini eklemek isterseniz **arayüz hazır bekliyor**:
@@ -176,4 +199,6 @@ Faz 1 (tamamlandı): auth · hesaplar · kategoriler · işlemler · **sesli gir
 
 Faz 2 (tamamlandı): **aylık bütçe limitleri** · ilerleme çubuğu · aşım uyarısı
 
-Sonraki fazlar: tekrarlayan işlemler · borç/alacak takibi · raporlar ve grafikler · CSV dışa aktarma
+Faz 3 (tamamlandı): **tekrarlayan işlemler** · vade onayı · duraklatma
+
+Sonraki fazlar: borç/alacak takibi · raporlar ve grafikler · CSV dışa aktarma · cilalama
