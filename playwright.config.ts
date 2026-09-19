@@ -15,12 +15,12 @@ export default defineConfig({
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
       name: "anon",
-      testMatch: /giris\.spec\.ts/,
+      testMatch: /(giris|a11y)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "app",
-      testIgnore: /giris\.spec\.ts/,
+      testIgnore: /(giris|a11y)\.spec\.ts/,
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"], storageState: "e2e/.auth/user.json" },
     },

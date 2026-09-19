@@ -32,6 +32,20 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-[var(--bg)]">
+      {/*
+       * ── İÇERİĞE ATLA ──
+       *
+       * Klavye kullanıcısı her sayfada altı gezinme bağlantısını
+       * tek tek geçmek zorunda kalmamalı. Bağlantı normalde görsel
+       * olarak gizli; yalnızca klavye odağı geldiğinde belirir.
+       */}
+      <a
+        href="#icerik"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-(--z-toast) focus:rounded-[var(--r-md)] focus:bg-[var(--brand)] focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
+      >
+        İçeriğe atla
+      </a>
+
       <header className="sticky top-0 z-(--z-sticky) border-b border-[var(--border)] bg-[var(--bg)]/95 backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
           <Link href="/" className="text-[15px] font-semibold text-[var(--ink)]">
@@ -46,7 +60,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 pt-6 pb-28 sm:pb-12">{children}</main>
+      {/* `scroll-mt`: yapışkan başlık odaklanan öğeyi örtmesin
+          (WCAG 2.4.11 — odak gizlenmemeli). */}
+      <main
+        id="icerik"
+        tabIndex={-1}
+        className="mx-auto max-w-3xl scroll-mt-20 px-4 pt-6 pb-28 outline-none sm:pb-12"
+      >
+        {children}
+      </main>
 
       {/* Mobil gezinme — altta, başparmak erişiminde. */}
       <nav

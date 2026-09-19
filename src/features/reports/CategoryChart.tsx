@@ -95,7 +95,9 @@ export function CategoryChart({ slices, showTable = false }: CategoryChartProps)
       <button
         type="button"
         onClick={() => setTable((t) => !t)}
-        className="self-start text-[13px] text-[var(--ink-3)] underline-offset-2 hover:text-[var(--ink)] hover:underline"
+        /* `min-h-6` + dikey dolgu: yalnizca metin yuksekligi
+           (20px) WCAG 2.2 (2.5.8) alt sinirinin altinda kalirdi. */
+        className="-mx-1 min-h-6 self-start rounded-[var(--r-sm)] px-1 py-0.5 text-[13px] text-[var(--ink-3)] underline-offset-2 hover:text-[var(--ink)] hover:underline"
       >
         {table ? "Grafik olarak göster" : "Tablo olarak göster"}
       </button>

@@ -1,0 +1,119 @@
+import { test, expect } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+
+/**
+ * Erişilebilirlik regresyon kapısı.
+ *
+ * ── NEDEN E2E ──
+ *
+ * Erişilebilirlik ihlallerinin çoğu (eksik etiket, yasaklı ARIA
+ * özniteliği, küçük dokunma hedefi) yalnızca GERÇEK BİR TARAYICIDA
+ * hesaplanmış düzen üzerinde görülebilir. Birim testi 23×23 piksellik
+ * bir düğmeyi yakalayamaz.
+ *
+ * Bu testler giriş gerektirmeyen yüzeyleri tarar. Korumalı sayfalar
+ * için `auth.setup.ts` ile oturum açılan `app` projesi gerekir;
+ * oradaki bileşenler zaten aynı `components/ui.tsx` dağarcığını
+ * kullanıyor, dolayısıyla buradaki kapı onları da dolaylı korur.
+ */
+
+const WCAG_TAGS = [
+  "wcag2a",
+  "wcag2aa",
+  "wcag21a",
+  "wcag21aa",
+  "wcag22aa",
+];
+
+test.describe("erişilebilirlik", () => {
+  test("giriş sayfasında WCAG ihlali yok", async ({ page }) => {
+    await page.goto("/giris");
+    const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
+
+    // Hata mesajında ihlalin adı görünsün; yalnızca sayı görmek
+    // hangi kuralın bozulduğunu aramayı gerektirirdi.
+    const summary = results.violations
+      .map((v) => `${v.id} (${v.impact}): ${v.nodes.length} öğe`)
+      .join("\n");
+    expect(summary, summary).toBe("");
+  });
+
+  test("kayıt modunda WCAG ihlali yok", async ({ page }) => {
+    await page.goto("/giris");
+    await page.getByRole("button", { name: /hesap oluşturun/i }).click();
+
+    const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
+    expect(results.violations.map((v) => v.id)).toEqual([]);
+  });
+
+  test("★ dokunma hedefleri en az 24×24 piksel (WCAG 2.5.8)", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto("/giris");
+
+    const small = await page.evaluate(() => {
+      const out: string[] = [];
+      for (const el of document.querySelectorAll("button, a[href], input, select")) {
+        const r = el.getBoundingClientRect();
+        // Gizli öğeler sayılmaz.
+        if (r.width === 0 && r.height === 0) continue;
+        if (r.width < 24 || r.height < 24) {
+          const label =
+            el.getAttribute("aria-label") ?? el.textContent?.trim() ?? "";
+          out.push(`${el.tagName.toLowerCase()} "${label.slice(0, 30)}" ${Math.round(r.width)}×${Math.round(r.height)}`);
+        }
+      }
+      return out;
+    });
+
+    expect(small.join("\n"), small.join("\n")).toBe("");
+  });
+
+  test("★ %200 yakınlaştırmada yatay taşma olmaz (WCAG 1.4.4)", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto("/giris");
+    // Kök yazı boyutunu iki katına çıkarmak tarayıcı
+    // yakınlaştırmasını taklit eder.
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "32px";
+    });
+
+    const overflows = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth + 1,
+    );
+    expect(overflows).toBe(false);
+  });
+
+  test("★ azaltılmış hareket tercihine uyulur", async ({ browser }) => {
+    const ctx = await browser.newContext({ reducedMotion: "reduce" });
+    const page = await ctx.newPage();
+    await page.goto("/giris");
+
+    const longTransitions = await page.evaluate(() => {
+      const out: string[] = [];
+      for (const el of document.querySelectorAll("*")) {
+        const d = getComputedStyle(el).transitionDuration;
+        if (d && parseFloat(d) > 0.01) out.push(`${el.tagName}: ${d}`);
+      }
+      return out;
+    });
+
+    expect(longTransitions.join(", ")).toBe("");
+    await ctx.close();
+  });
+
+  test("PWA ikonları ve manifest servis ediliyor", async ({ request }) => {
+    // Manifest var olmayan bir ikona işaret ederse uygulama ana
+    // ekrana eklenemez ve bu sessizce başarısız olur.
+    for (const path of ["/icon.svg", "/icon-maskable.svg", "/manifest.webmanifest"]) {
+      const res = await request.get(path);
+      expect(res.status(), `${path} bulunamadı`).toBe(200);
+    }
+
+    const manifest = await (await request.get("/manifest.webmanifest")).json();
+    const purposes = manifest.icons.map((i: { purpose: string }) => i.purpose);
+    // `maskable` olmadan Android ikonu kendi kırpmasını uygular ve
+    // kare ikonun köşeleri kesilir.
+    expect(purposes).toContain("any");
+    expect(purposes).toContain("maskable");
+  });
+});

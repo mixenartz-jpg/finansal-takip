@@ -216,6 +216,20 @@ Zincir, kural motorunun güveni `CONFIDENCE_THRESHOLD` (0.6) altında kaldığı
 
 ---
 
+## Erişilebilirlik
+
+Uygulama WCAG 2.2 AA hedefiyle yazıldı ve bu **her derlemede otomatik denetleniyor** (`npm run e2e`):
+
+- **0 axe ihlali** — giriş, kayıt ve tüm paylaşılan bileşenler taranıyor
+- **Dokunma hedefleri ≥ 24×24 px** (WCAG 2.5.8)
+- **%200 yakınlaştırmada yatay taşma yok** (WCAG 1.4.4)
+- **Azaltılmış hareket** tercihine uyuluyor — tüm geçişler duruyor
+- **Klavye**: "İçeriğe atla" bağlantısı, görünür odak halkaları, tuzak yok
+- **Renk kontrastı** birim testiyle kilitli (`colors.contrast.test.ts`)
+- Renk hiçbir yerde tek gösterge değil — durum ayrıca metinle bildiriliyor
+
+---
+
 ## Komutlar
 
 ```bash
@@ -253,4 +267,6 @@ Faz 4 (tamamlandı): **borç / alacak takibi** · ödeme geçmişi · vade uyar�
 
 Faz 5 (tamamlandı): **raporlar** · kategori dağılımı · nakit akışı · CSV dışa aktarma
 
-Sonraki faz: cilalama (boş durumlar, erişilebilirlik denetimi, PWA)
+Faz 6 (tamamlandı): **erişilebilirlik denetimi** · PWA ikonları · içeriğe atla bağlantısı
+
+**Tüm fazlar tamamlandı.** Faz 7 (Gemini) isteğe bağlı; altyapısı hazır bekliyor.

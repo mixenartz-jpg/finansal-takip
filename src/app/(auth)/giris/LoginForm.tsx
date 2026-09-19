@@ -122,7 +122,9 @@ export function LoginForm() {
           setMode(mode === "signin" ? "signup" : "signin");
           setStatus({ kind: "idle" });
         }}
-        className="text-[13px] text-[var(--ink-3)] underline-offset-2 hover:text-[var(--ink)] hover:underline"
+        /* `min-h-6` + dikey dolgu: yalnizca metin yuksekligi (20px)
+           WCAG 2.2 (2.5.8) 24x24 alt sinirinin altinda kaliyordu. */
+        className="min-h-6 rounded-[var(--r-sm)] py-0.5 text-[13px] text-[var(--ink-3)] underline-offset-2 hover:text-[var(--ink)] hover:underline"
       >
         {mode === "signin"
           ? "Hesabınız yok mu? Hesap oluşturun"

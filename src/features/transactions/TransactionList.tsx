@@ -120,12 +120,27 @@ function TransactionRow({
         <div className="flex items-center gap-1.5">
           <p className="truncate text-sm text-[var(--ink)]">{label}</p>
           {tx.source === "voice" && (
+            /*
+             * ── NEDEN `aria-label` DEĞİL ──
+             *
+             * `aria-label` yalnızca anlamsal rolü olan öğelerde
+             * geçerlidir; düz bir `<span>` üzerinde ekran okuyucu
+             * onu YOK SAYAR ve ikonun anlamı kaybolur (axe:
+             * aria-prohibited-attr).
+             *
+             * `title` de yeterli değil: klavye ve dokunmatikte
+             * görünmez. Bunun yerine görsel olarak gizli ama
+             * okunabilir gerçek metin kullanılıyor.
+             */
             <span
               title={tx.voiceTranscript ?? "Sesle eklendi"}
-              aria-label="Sesle eklendi"
               className="shrink-0 text-[var(--ink-3)]"
             >
               <MicGlyph />
+              <span className="sr-only">
+                Sesle eklendi
+                {tx.voiceTranscript ? `: ${tx.voiceTranscript}` : ""}
+              </span>
             </span>
           )}
         </div>
@@ -143,7 +158,10 @@ function TransactionRow({
           type="button"
           onClick={() => onDelete(tx.id)}
           aria-label="İşlemi sil"
-          className="shrink-0 rounded-[var(--r-sm)] p-1 text-[var(--ink-3)] opacity-0 transition-opacity hover:text-[var(--danger)] focus-visible:opacity-100 group-hover:opacity-100"
+          /* `size-7` (28px): WCAG 2.2 (2.5.8) en az 24×24 CSS px
+             ister. `p-1` + 15px ikon 23×23 veriyordu — bir piksel
+             eksikti ve dokunmatikte ıskalanması kolaydı. */
+          className="grid size-7 shrink-0 place-items-center rounded-[var(--r-sm)] text-[var(--ink-3)] opacity-0 transition-opacity hover:text-[var(--danger)] focus-visible:opacity-100 group-hover:opacity-100"
         >
           <TrashGlyph />
         </button>

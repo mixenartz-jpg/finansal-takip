@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Hesap Takip">
+  <!--
+    Uygulama ikonu.
+
+    Marka lacivertinde dolu kare + beyaz bir çubuk grafik silüeti.
+    Mikrofon denenmedi: küçük boyutta (48px ana ekran ikonu) mikrofon
+    silüeti ses kaydı uygulamalarıyla karışır; yükselen çubuklar
+    "para takibi"ni daha doğrudan anlatır.
+  -->
+  <rect width="512" height="512" rx="112" fill="#2f3fa8"/>
+  <g fill="#ffffff">
+    <rect x="128" y="288" width="56" height="112" rx="14"/>
+    <rect x="228" y="224" width="56" height="176" rx="14"/>
+    <rect x="328" y="128" width="56" height="272" rx="14"/>
+  </g>
+</svg>

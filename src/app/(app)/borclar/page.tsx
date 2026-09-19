@@ -304,7 +304,9 @@ function DebtDetail({
                 <button
                   type="button"
                   onClick={() => handleDelete(p.id)}
-                  className={`shrink-0 rounded-[var(--r-sm)] px-1.5 py-1 text-[13px] transition-opacity ${
+                  /* min-h-6 (24px): WCAG 2.2 (2.5.8) dokunma hedefi
+                     alt siniri. */
+                  className={`min-h-6 shrink-0 rounded-[var(--r-sm)] px-1.5 py-1 text-[13px] transition-opacity ${
                     confirmDelete === p.id
                       ? "text-[var(--danger)] opacity-100"
                       : "text-[var(--ink-3)] opacity-0 hover:text-[var(--danger)] focus-visible:opacity-100 group-hover:opacity-100"

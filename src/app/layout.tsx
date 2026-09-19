@@ -19,6 +19,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Hesap Takip",
   description: "Konuşarak işlem ekleyebildiğin kişisel finans takibi.",
+  // Sekme ikonu. `manifest.ts` PWA ikonlarini ayrica tanimliyor;
+  // burasi tarayici sekmesi ve yer imi icin.
+  icons: { icon: "/icon.svg", apple: "/icon.svg" },
 };
 
 export const viewport: Viewport = {

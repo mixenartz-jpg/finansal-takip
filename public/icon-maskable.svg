@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Hesap Takip">
+  <!--
+    Maskelenebilir ikon (Android adaptif).
+
+    Android ikonu daire/kare/damla gibi kırpar; güvenli alan
+    merkezdeki %80'dir. Bu yüzden içerik normal ikondan daha
+    küçük ve daha ortada — köşeler kırpılsa bile çubuklar
+    kesilmez.
+  -->
+  <rect width="512" height="512" fill="#2f3fa8"/>
+  <g fill="#ffffff">
+    <rect x="160" y="296" width="48" height="96" rx="12"/>
+    <rect x="232" y="240" width="48" height="152" rx="12"/>
+    <rect x="304" y="160" width="48" height="232" rx="12"/>
+  </g>
+</svg>

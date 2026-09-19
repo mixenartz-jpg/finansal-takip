@@ -17,6 +17,17 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#ffffff",
     theme_color: "#ffffff",
     lang: "tr",
-    icons: [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml" }],
+    // `any` normal ikon; `maskable` Android'in adaptif kirpmasi
+    // icin ayri dosya — ayni dosyayi ikisi icin kullanmak kare
+    // ikonun koselerini kirptirir ve cubuklarin ucu kaybolur.
+    icons: [
+      { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+      {
+        src: "/icon-maskable.svg",
+        sizes: "any",
+        type: "image/svg+xml",
+        purpose: "maskable",
+      },
+    ],
   };
 }
