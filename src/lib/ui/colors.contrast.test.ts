@@ -1,7 +1,14 @@
 import { describe, test, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { TOKENS, contrastRatio, AA_NORMAL, AA_LARGE, type Oklch } from "./colors";
+import {
+  TOKENS,
+  DARK_TOKENS,
+  contrastRatio,
+  AA_NORMAL,
+  AA_LARGE,
+  type Oklch,
+} from "./colors";
 
 /**
  * Kontrast kapısı.
@@ -96,18 +103,97 @@ describe("token senkronu -- CSS ile TS aynı değerleri taşımalı", () => {
     danger: "--danger",
   };
 
-  for (const [token, cssVar] of Object.entries(CSS_VAR_BY_TOKEN)) {
-    test(`${cssVar} CSS'te TS ile aynı`, () => {
-      const re = new RegExp(
-        `${cssVar!.replace(/-/g, "\\-")}:\\s*oklch\\(([\\d.]+)\\s+([\\d.]+)\\s+([\\d.]+)\\)`,
-      );
-      const m = css.match(re);
-      expect(m, `${cssVar} globals.css içinde bulunamadı`).not.toBeNull();
+  /**
+   * CSS artık İKİ token kümesi taşıyor. Basit bir regex her
+   * değişkenin İLK eşleşmesini bulur ve koyu tema bloğu sessizce
+   * doğrulanmadan kalır — test yeşil görünürken hiçbir şey
+   * doğrulamaz. Bu yüzden bloklar önce ayrılıyor.
+   */
+  function extractBlock(source: string, marker: string): string {
+    const start = source.indexOf(marker);
+    expect(start, `"${marker}" globals.css içinde bulunamadı`).toBeGreaterThan(-1);
+    const open = source.indexOf("{", start);
+    let depth = 0;
+    for (let i = open; i < source.length; i++) {
+      if (source[i] === "{") depth++;
+      else if (source[i] === "}") {
+        depth--;
+        if (depth === 0) return source.slice(open, i);
+      }
+    }
+    throw new Error(`"${marker}" bloğu kapanmamış`);
+  }
 
-      const t = TOKENS[token as keyof typeof TOKENS];
-      expect(Number(m![1]), `${cssVar} L`).toBeCloseTo(t.l, 3);
-      expect(Number(m![2]), `${cssVar} C`).toBeCloseTo(t.c, 3);
-      expect(Number(m![3]), `${cssVar} H`).toBeCloseTo(t.h, 1);
+  const lightBlock = extractBlock(css, "/* THEME:LIGHT */");
+  const darkBlock = extractBlock(css, "/* THEME:DARK */");
+
+  function expectTokenInBlock(block: string, cssVar: string, expected: Oklch) {
+    const re = new RegExp(
+      `${cssVar.replace(/-/g, "\\-")}:\\s*oklch\\(([\\d.]+)\\s+([\\d.]+)\\s+([\\d.]+)\\)`,
+    );
+    const m = block.match(re);
+    expect(m, `${cssVar} blokta bulunamadı`).not.toBeNull();
+    expect(Number(m![1]), `${cssVar} L`).toBeCloseTo(expected.l, 3);
+    expect(Number(m![2]), `${cssVar} C`).toBeCloseTo(expected.c, 3);
+    expect(Number(m![3]), `${cssVar} H`).toBeCloseTo(expected.h, 1);
+  }
+
+  for (const [token, cssVar] of Object.entries(CSS_VAR_BY_TOKEN)) {
+    const key = token as keyof typeof TOKENS;
+    test(`${cssVar} AÇIK temada TS ile aynı`, () => {
+      expectTokenInBlock(lightBlock, cssVar!, TOKENS[key]);
+    });
+    test(`${cssVar} KOYU temada TS ile aynı`, () => {
+      expectTokenInBlock(darkBlock, cssVar!, DARK_TOKENS[key]);
     });
   }
+});
+
+describe("koyu tema kontrastı -- WCAG AA", () => {
+  const DARK_PAIRS: { name: string; fg: Oklch; bg: Oklch; min: number }[] = [
+    { name: "başlık / zemin", fg: DARK_TOKENS.ink, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+    { name: "GÖVDE metni / zemin", fg: DARK_TOKENS.ink2, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+    { name: "ikincil metin / zemin", fg: DARK_TOKENS.ink3, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+    { name: "gövde / yüzey", fg: DARK_TOKENS.ink2, bg: DARK_TOKENS.surface, min: AA_NORMAL },
+    { name: "başlık / yüzey", fg: DARK_TOKENS.ink, bg: DARK_TOKENS.surface, min: AA_NORMAL },
+    { name: "ikincil / yüzey-2", fg: DARK_TOKENS.ink3, bg: DARK_TOKENS.surface2, min: AA_NORMAL },
+
+    { name: "marka bağlantı / zemin", fg: DARK_TOKENS.brand, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+    { name: "marka mürekkep / marka yumuşak", fg: DARK_TOKENS.brandInk, bg: DARK_TOKENS.brandSoft, min: AA_NORMAL },
+
+    { name: "GELİR tutarı / zemin", fg: DARK_TOKENS.income, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+    { name: "GİDER tutarı / zemin", fg: DARK_TOKENS.expense, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+    { name: "gelir / gelir yumuşak", fg: DARK_TOKENS.income, bg: DARK_TOKENS.incomeSoft, min: AA_NORMAL },
+    { name: "gider / gider yumuşak", fg: DARK_TOKENS.expense, bg: DARK_TOKENS.expenseSoft, min: AA_NORMAL },
+    { name: "gelir tutarı / yüzey", fg: DARK_TOKENS.income, bg: DARK_TOKENS.surface, min: AA_NORMAL },
+    { name: "gider tutarı / yüzey", fg: DARK_TOKENS.expense, bg: DARK_TOKENS.surface, min: AA_NORMAL },
+
+    { name: "UYARI / uyarı yumuşak", fg: DARK_TOKENS.warning, bg: DARK_TOKENS.warningSoft, min: AA_NORMAL },
+    { name: "uyarı / zemin", fg: DARK_TOKENS.warning, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+    { name: "tehlike / zemin", fg: DARK_TOKENS.danger, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+  ];
+
+  for (const { name, fg, bg, min } of DARK_PAIRS) {
+    test(`${name} >= ${min}:1`, () => {
+      const ratio = contrastRatio(fg, bg);
+      expect(
+        ratio,
+        `koyu ${name}: ${ratio.toFixed(2)}:1 (en az ${min}:1 olmalı)`,
+      ).toBeGreaterThanOrEqual(min);
+    });
+  }
+
+  test("koyu zemin gerçekten koyu", () => {
+    expect(DARK_TOKENS.bg.l).toBeLessThan(0.3);
+  });
+
+  test("koyu tema açık temayla AYNI token kümesine sahip", () => {
+    // Bir token koyuda eksik kalırsa o yüzey açık temadaki değerini
+    // korur ve koyu ekranda beyaz bir leke olarak görünür.
+    expect(Object.keys(DARK_TOKENS).sort()).toEqual(Object.keys(TOKENS).sort());
+  });
+
+  test("koyu kenarlık zeminden ayırt edilebilir", () => {
+    expect(contrastRatio(DARK_TOKENS.border, DARK_TOKENS.bg)).toBeGreaterThan(1.2);
+  });
 });

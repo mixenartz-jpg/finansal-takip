@@ -30,6 +30,7 @@
  * "zarardasın" hissine sokar. Kırmızı yalnızca gider tutarlarına ayrılmış.
  */
 
+/* THEME:LIGHT */
 :root {
   /* ── Yüzeyler ──
    * Zemin SAF BEYAZ. Krem/bej/"paper" tonları 2026'nın doymuş AI
@@ -98,6 +99,77 @@
   --z-overlay: 20;
   --z-sheet: 30;
   --z-toast: 40;
+}
+
+/*
+ * ── KOYU TEMA ──
+ *
+ * İki blok, tek değer kümesi:
+ *
+ *   1. `@media (prefers-color-scheme: dark)` — sistem tercihi.
+ *      `:root:not([data-theme="light"])` koşulu şart: kullanıcı
+ *      açığı ELLE seçtiyse sistem tercihi onu ezmemeli.
+ *   2. `:root[data-theme="dark"]` — kullanıcının elle seçimi,
+ *      sistem ne derse desin.
+ *
+ * Değerler `colors.ts` içindeki DARK_TOKENS ile senkron tutulur;
+ * `colors.contrast.test.ts` her iki bloğu AYRI AYRI doğrular —
+ * tek regex ilk eşleşmeyi bulup koyu bloğu sessizce atlardı.
+ */
+
+/* THEME:DARK */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: oklch(0.17 0.008 265);
+    --surface: oklch(0.21 0.009 265);
+    --surface-2: oklch(0.25 0.01 265);
+    --border: oklch(0.32 0.011 265);
+    --border-strong: oklch(0.44 0.013 265);
+
+    --ink: oklch(0.96 0.003 265);
+    --ink-2: oklch(0.86 0.005 265);
+    --ink-3: oklch(0.72 0.008 265);
+
+    --brand: oklch(0.72 0.14 266);
+    --brand-hover: oklch(0.79 0.13 266);
+    --brand-soft: oklch(0.27 0.05 266);
+    --brand-ink: oklch(0.82 0.11 266);
+
+    --income: oklch(0.76 0.16 152);
+    --income-soft: oklch(0.26 0.05 152);
+    --expense: oklch(0.72 0.16 25);
+    --expense-soft: oklch(0.27 0.06 25);
+
+    --warning: oklch(0.81 0.14 75);
+    --warning-soft: oklch(0.28 0.05 75);
+    --danger: oklch(0.72 0.16 25);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: oklch(0.17 0.008 265);
+  --surface: oklch(0.21 0.009 265);
+  --surface-2: oklch(0.25 0.01 265);
+  --border: oklch(0.32 0.011 265);
+  --border-strong: oklch(0.44 0.013 265);
+
+  --ink: oklch(0.96 0.003 265);
+  --ink-2: oklch(0.86 0.005 265);
+  --ink-3: oklch(0.72 0.008 265);
+
+  --brand: oklch(0.72 0.14 266);
+  --brand-hover: oklch(0.79 0.13 266);
+  --brand-soft: oklch(0.27 0.05 266);
+  --brand-ink: oklch(0.82 0.11 266);
+
+  --income: oklch(0.76 0.16 152);
+  --income-soft: oklch(0.26 0.05 152);
+  --expense: oklch(0.72 0.16 25);
+  --expense-soft: oklch(0.27 0.06 25);
+
+  --warning: oklch(0.81 0.14 75);
+  --warning-soft: oklch(0.28 0.05 75);
+  --danger: oklch(0.72 0.16 25);
 }
 
 @theme inline {
