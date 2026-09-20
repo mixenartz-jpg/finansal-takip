@@ -30,6 +30,7 @@ export default defineConfig({
         "src/features/reports/aggregate.ts",
         "src/features/reports/csv.ts",
         "src/lib/ui/theme.ts",
+        "src/lib/ui/focus.ts",
       ],
       // Arayuz tanimlari ve veri sozlukleri: calistirilabilir dal yok,
       // kapsam yuzdesini sulandirirlar.

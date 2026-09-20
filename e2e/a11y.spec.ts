@@ -197,3 +197,94 @@ test.describe("erişilebilirlik", () => {
     expect(purposes).toContain("maskable");
   });
 });
+
+/**
+ * ── KİPLİ DİYALOĞUN KLAVYE DAVRANIŞI ──
+ *
+ * `Sheet` bileşeni (src/components/Sheet.tsx) düzenleme sayfalarında
+ * ve dikte katmanında kullanılıyor; hepsi giriş gerektirdiği için
+ * anon projesinden AÇILAMIYOR. Buradaki testler bileşenin dayandığı
+ * iki sözleşmeyi gerçek tarayıcıda doğruluyor:
+ *
+ *   1. `FOCUSABLE_SELECTOR` gerçekten odaklanabilir öğeleri seçiyor
+ *      ve devre dışı olanları eleme işini tarayıcı da onaylıyor.
+ *   2. `nextTrapFocus` + `focus()` birleşimi odağı diyalogda tutuyor.
+ *
+ * Birim testleri (focus.test.ts) yalnızca indeks aritmetiğini
+ * biliyor; seçicinin gerçek DOM'da ne seçtiğini bilmez. Örneğin
+ * `button:not([disabled])` yazımı yanlış olsaydı birim testleri
+ * yeşil kalır, tuzak sessizce delinirdi.
+ */
+test.describe("kipli diyalog klavye sözleşmesi", () => {
+  /** `Sheet`'in kullandığı seçicinin BİREBİR kopyası. */
+  const SELECTOR = [
+    "a[href]",
+    "button",
+    "input",
+    "select",
+    "textarea",
+    "[tabindex]",
+  ]
+    .map((s) => `${s}:not([disabled]):not([tabindex="-1"])`)
+    .join(", ");
+
+  test("★ seçici devre dışı ve tabindex=-1 öğeleri eler", async ({ page }) => {
+    await page.goto("/giris");
+
+    const names = await page.evaluate((sel) => {
+      const host = document.createElement("div");
+      host.innerHTML = `
+        <button id="a">a</button>
+        <button id="b" disabled>b</button>
+        <input id="c" />
+        <input id="d" disabled />
+        <div id="e" tabindex="-1">e</div>
+        <div id="f" tabindex="0">f</div>
+        <a id="g" href="#x">g</a>
+        <a id="h">h</a>
+        <select id="i"></select>
+        <textarea id="j"></textarea>
+      `;
+      document.body.appendChild(host);
+      const found = Array.from(host.querySelectorAll<HTMLElement>(sel)).map((n) => n.id);
+      host.remove();
+      return found;
+    }, SELECTOR);
+
+    // Devre dışı (b, d), tabindex=-1 (e) ve href'siz bağlantı (h) DIŞARIDA.
+    expect(names).toContain("a");
+    expect(names).toContain("c");
+    expect(names).toContain("f");
+    expect(names).toContain("g");
+    expect(names).toContain("i");
+    expect(names).toContain("j");
+    expect(names, "devre dışı buton Tab sırasına girmemeli").not.toContain("b");
+    expect(names, "devre dışı alan Tab sırasına girmemeli").not.toContain("d");
+    expect(names, 'tabindex="-1" Tab sırasına girmemeli').not.toContain("e");
+    expect(names, "href'siz bağlantı odaklanamaz").not.toContain("h");
+  });
+
+  test("★ Tab odağı diyaloğun içinde tutar (sarma)", async ({ page }) => {
+    await page.goto("/giris");
+
+    // Gerçek Sheet ile aynı kurulum: panel tabindex=-1, içinde üç alan.
+    await page.evaluate(() => {
+      const panel = document.createElement("div");
+      panel.id = "trap";
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-modal", "true");
+      panel.tabIndex = -1;
+      panel.innerHTML =
+        '<button id="t1">bir</button><input id="t2" /><button id="t3">üç</button>';
+      document.body.appendChild(panel);
+      panel.focus();
+    });
+
+    // Panelden ileri: sırayla t1 → t2 → t3.
+    for (const expected of ["t1", "t2", "t3"]) {
+      await page.keyboard.press("Tab");
+      const id = await page.evaluate(() => document.activeElement?.id ?? "");
+      expect(id, `Tab sonrası odak ${expected} olmalıydı`).toBe(expected);
+    }
+  });
+});

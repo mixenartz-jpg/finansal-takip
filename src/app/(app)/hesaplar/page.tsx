@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Sheet } from "@/components/Sheet";
 import {
   useAccountsWithBalances,
   useUpdateAccount,
@@ -69,32 +70,19 @@ export default function HesaplarPage() {
       )}
 
       {editing && (
-        <div className="fixed inset-0 z-(--z-sheet)">
-          <button
-            type="button"
-            aria-label="Kapat"
-            onClick={() => setEditing(null)}
-            className="absolute inset-0 bg-[var(--ink)]/20"
+        <Sheet label="Hesabı düzenle" onClose={() => setEditing(null)}>
+          <AccountEditForm
+            account={editing}
+            saving={updateAccount.isPending}
+            onSave={handleSave}
+            onCancel={() => setEditing(null)}
           />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Hesabı düzenle"
-            className="absolute inset-x-0 bottom-0 mx-auto max-h-[85dvh] max-w-3xl overflow-y-auto rounded-t-[var(--r-lg)] border-t border-[var(--border)] bg-[var(--bg)] p-4 sm:inset-x-4 sm:bottom-4 sm:rounded-[var(--r-lg)] sm:border"
-          >
-            <AccountEditForm
-              account={editing}
-              saving={updateAccount.isPending}
-              onSave={handleSave}
-              onCancel={() => setEditing(null)}
-            />
-            {updateAccount.error && (
-              <p role="alert" className="mt-3 text-[13px] text-[var(--danger)]">
-                {updateAccount.error.message}
-              </p>
-            )}
-          </div>
-        </div>
+          {updateAccount.error && (
+            <p role="alert" className="mt-3 text-[13px] text-[var(--danger)]">
+              {updateAccount.error.message}
+            </p>
+          )}
+        </Sheet>
       )}
     </div>
   );

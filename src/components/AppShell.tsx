@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { DictationSheet } from "@/features/dictation/DictationSheet";
+import { Sheet } from "@/components/Sheet";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 /**
@@ -128,22 +129,9 @@ export function AppShell({ children }: { children: ReactNode }) {
  */
 function DictationOverlay({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-(--z-sheet)">
-      <button
-        type="button"
-        aria-label="Kapat"
-        onClick={onClose}
-        className="absolute inset-0 bg-[var(--ink)]/20"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Sesli işlem ekle"
-        className="absolute inset-x-0 bottom-0 mx-auto max-w-3xl rounded-t-[var(--r-lg)] border-t border-[var(--border)] bg-[var(--bg)] sm:inset-x-4 sm:bottom-4 sm:rounded-[var(--r-lg)] sm:border"
-      >
-        <DictationSheet onClose={onClose} />
-      </div>
-    </div>
+    <Sheet label="Sesli işlem ekle" onClose={onClose} padded={false}>
+      <DictationSheet onClose={onClose} />
+    </Sheet>
   );
 }
 
