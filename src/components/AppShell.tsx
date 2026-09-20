@@ -43,7 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
        */}
       <a
         href="#icerik"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-(--z-toast) focus:rounded-[var(--r-md)] focus:bg-[var(--brand)] focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-(--z-toast) focus:rounded-[var(--r-md)] focus:bg-[var(--brand)] focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--on-brand)]"
       >
         İçeriğe atla
       </a>
@@ -98,7 +98,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         aria-label="Sesli işlem ekle"
         className={[
           "fixed bottom-20 right-4 z-(--z-sticky) grid size-14 place-items-center",
-          "rounded-full bg-[var(--brand)] text-white sm:bottom-6",
+          "rounded-full bg-[var(--brand)] text-[var(--on-brand)] sm:bottom-6",
           "transition-colors duration-[var(--dur-fast)] hover:bg-[var(--brand-hover)]",
         ].join(" ")}
       >

@@ -51,6 +51,7 @@ export const TOKENS = {
    * `text-white` değil, temaya göre değişen bir token. */
   onBrand: { l: 1, c: 0, h: 0 },
   onDanger: { l: 1, c: 0, h: 0 },
+  onExpense: { l: 1, c: 0, h: 0 },
 } as const satisfies Record<string, Oklch>;
 
 export type TokenName = keyof typeof TOKENS;
@@ -100,6 +101,7 @@ export const DARK_TOKENS = {
    * beyaz yazı 2.52:1 veriyordu, zemin tonu 7.59:1 veriyor. */
   onBrand: { l: 0.17, c: 0.008, h: 265 },
   onDanger: { l: 0.17, c: 0.008, h: 265 },
+  onExpense: { l: 0.17, c: 0.008, h: 265 },
 } as const satisfies Record<TokenName, Oklch>;
 
 /** OKLCH → sRGB (0..1 aralığında, gamut'a kırpılmış). */

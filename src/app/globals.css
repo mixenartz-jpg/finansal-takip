@@ -83,6 +83,7 @@
    * temayla birlikte değişir. */
   --on-brand: oklch(1 0 0);
   --on-danger: oklch(1 0 0);
+  --on-expense: oklch(1 0 0);
 
   /* ── Yarıçap ──
    * Kartlar 12px'te tavan yapar. 24/32px "insanely rounded" kart
@@ -153,6 +154,7 @@
 
     --on-brand: oklch(0.17 0.008 265);
     --on-danger: oklch(0.17 0.008 265);
+    --on-expense: oklch(0.17 0.008 265);
   }
 }
 
@@ -183,6 +185,7 @@
 
   --on-brand: oklch(0.17 0.008 265);
   --on-danger: oklch(0.17 0.008 265);
+  --on-expense: oklch(0.17 0.008 265);
 }
 
 @theme inline {
@@ -207,6 +210,7 @@
   --color-danger: var(--danger);
   --color-on-brand: var(--on-brand);
   --color-on-danger: var(--on-danger);
+  --color-on-expense: var(--on-expense);
 
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);

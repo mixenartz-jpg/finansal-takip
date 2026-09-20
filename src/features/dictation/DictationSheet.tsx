@@ -190,8 +190,8 @@ function MicButton({ listening, onClick }: { listening: boolean; onClick: () => 
         "relative grid size-20 place-items-center rounded-full",
         "transition-colors duration-[var(--dur)] ease-[var(--ease)]",
         listening
-          ? "bg-[var(--expense)] text-white"
-          : "bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)]",
+          ? "bg-[var(--expense)] text-[var(--on-expense)]"
+          : "bg-[var(--brand)] text-[var(--on-brand)] hover:bg-[var(--brand-hover)]",
       ].join(" ")}
     >
       {listening && (

@@ -31,6 +31,7 @@ const PAIRS: { name: string; fg: Oklch; bg: Oklch; min: number }[] = [
   { name: "marka bağlantı / zemin", fg: TOKENS.brand, bg: TOKENS.bg, min: AA_NORMAL },
   { name: "buton yazısı / marka", fg: TOKENS.onBrand, bg: TOKENS.brand, min: AA_NORMAL },
   { name: "tehlike butonu yazısı / tehlike", fg: TOKENS.onDanger, bg: TOKENS.danger, min: AA_NORMAL },
+  { name: "mikrofon yazısı / gider", fg: TOKENS.onExpense, bg: TOKENS.expense, min: AA_NORMAL },
   { name: "marka mürekkep / marka yumuşak", fg: TOKENS.brandInk, bg: TOKENS.brandSoft, min: AA_NORMAL },
 
   { name: "GELİR tutarı / zemin", fg: TOKENS.income, bg: TOKENS.bg, min: AA_NORMAL },
@@ -104,6 +105,7 @@ describe("token senkronu -- CSS ile TS aynı değerleri taşımalı", () => {
     danger: "--danger",
     onBrand: "--on-brand",
     onDanger: "--on-danger",
+    onExpense: "--on-expense",
   };
 
   /**
@@ -210,6 +212,16 @@ describe("koyu tema kontrastı -- WCAG AA", () => {
     expect(
       ratio,
       `koyu tehlike butonu yazısı: ${ratio.toFixed(2)}:1 (en az ${AA_NORMAL}:1)`,
+    ).toBeGreaterThanOrEqual(AA_NORMAL);
+  });
+
+  /** Dinleme halindeki mikrofon düğmesi gider rengiyle dolar;
+   *  yazısı `--on-expense` üzerinden gelir, `text-white` değil. */
+  test("MİKROFON düğmesi yazısı okunur (koyu tema)", () => {
+    const ratio = contrastRatio(DARK_TOKENS.onExpense, DARK_TOKENS.expense);
+    expect(
+      ratio,
+      `koyu mikrofon yazısı: ${ratio.toFixed(2)}:1 (en az ${AA_NORMAL}:1)`,
     ).toBeGreaterThanOrEqual(AA_NORMAL);
   });
 
