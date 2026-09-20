@@ -77,6 +77,13 @@
   --warning-soft: oklch(0.96 0.04 75);
   --danger: oklch(0.52 0.19 25);
 
+  /* ── Dolu buton yazısı ──
+   * Sabit `text-white` DEĞİL. Koyu temada marka/tehlike renkleri
+   * açılır ve beyaz yazı 2.52:1'e düşer (AA 4.5:1 ister). Bu token
+   * temayla birlikte değişir. */
+  --on-brand: oklch(1 0 0);
+  --on-danger: oklch(1 0 0);
+
   /* ── Yarıçap ──
    * Kartlar 12px'te tavan yapar. 24/32px "insanely rounded" kart
    * yasaklı; ürün arayüzü yumuşak değil, net olmalı.
@@ -143,6 +150,9 @@
     --warning: oklch(0.81 0.14 75);
     --warning-soft: oklch(0.28 0.05 75);
     --danger: oklch(0.72 0.16 25);
+
+    --on-brand: oklch(0.17 0.008 265);
+    --on-danger: oklch(0.17 0.008 265);
   }
 }
 
@@ -170,6 +180,9 @@
   --warning: oklch(0.81 0.14 75);
   --warning-soft: oklch(0.28 0.05 75);
   --danger: oklch(0.72 0.16 25);
+
+  --on-brand: oklch(0.17 0.008 265);
+  --on-danger: oklch(0.17 0.008 265);
 }
 
 @theme inline {
@@ -192,6 +205,8 @@
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
   --color-danger: var(--danger);
+  --color-on-brand: var(--on-brand);
+  --color-on-danger: var(--on-danger);
 
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);

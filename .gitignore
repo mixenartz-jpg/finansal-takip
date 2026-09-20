@@ -13,3 +13,7 @@ playwright-report
 
 # Supabase CLI gecici dosyalari
 supabase/.temp/
+
+# Next.js tarafından otomatik üretilir (next.config: agentRules)
+AGENTS.md
+CLAUDE.md

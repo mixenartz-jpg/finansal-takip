@@ -29,7 +29,8 @@ const PAIRS: { name: string; fg: Oklch; bg: Oklch; min: number }[] = [
   { name: "ikincil / yüzey-2", fg: TOKENS.ink3, bg: TOKENS.surface2, min: AA_NORMAL },
 
   { name: "marka bağlantı / zemin", fg: TOKENS.brand, bg: TOKENS.bg, min: AA_NORMAL },
-  { name: "buton yazısı / marka", fg: TOKENS.bg, bg: TOKENS.brand, min: AA_NORMAL },
+  { name: "buton yazısı / marka", fg: TOKENS.onBrand, bg: TOKENS.brand, min: AA_NORMAL },
+  { name: "tehlike butonu yazısı / tehlike", fg: TOKENS.onDanger, bg: TOKENS.danger, min: AA_NORMAL },
   { name: "marka mürekkep / marka yumuşak", fg: TOKENS.brandInk, bg: TOKENS.brandSoft, min: AA_NORMAL },
 
   { name: "GELİR tutarı / zemin", fg: TOKENS.income, bg: TOKENS.bg, min: AA_NORMAL },
@@ -101,6 +102,8 @@ describe("token senkronu -- CSS ile TS aynı değerleri taşımalı", () => {
     warning: "--warning",
     warningSoft: "--warning-soft",
     danger: "--danger",
+    onBrand: "--on-brand",
+    onDanger: "--on-danger",
   };
 
   /**
@@ -182,6 +185,33 @@ describe("koyu tema kontrastı -- WCAG AA", () => {
       ).toBeGreaterThanOrEqual(min);
     });
   }
+
+  /**
+   * ── BUTON YAZISI ──
+   *
+   * Bu çift ilk yazıldığında ATLANMIŞTI ve gerçek bir hata kaçtı:
+   * koyu temada birincil buton beyaz yazı + açık marka rengiyle
+   * 2.52:1 veriyordu. Ekran görüntüsünde "biraz soluk" görünüyordu,
+   * ölçünce AA eşiğinin çok altındaydı.
+   *
+   * Koyu temada buton yazısı KOYU olur (zemin rengi), beyaz değil —
+   * `ui.tsx` bunu `--on-brand` token'ı üzerinden alır.
+   */
+  test("BİRİNCİL BUTON yazısı okunur (koyu tema)", () => {
+    const ratio = contrastRatio(DARK_TOKENS.onBrand, DARK_TOKENS.brand);
+    expect(
+      ratio,
+      `koyu buton yazısı: ${ratio.toFixed(2)}:1 (en az ${AA_NORMAL}:1)`,
+    ).toBeGreaterThanOrEqual(AA_NORMAL);
+  });
+
+  test("TEHLİKE BUTONU yazısı okunur (koyu tema)", () => {
+    const ratio = contrastRatio(DARK_TOKENS.onDanger, DARK_TOKENS.danger);
+    expect(
+      ratio,
+      `koyu tehlike butonu yazısı: ${ratio.toFixed(2)}:1 (en az ${AA_NORMAL}:1)`,
+    ).toBeGreaterThanOrEqual(AA_NORMAL);
+  });
 
   test("koyu zemin gerçekten koyu", () => {
     expect(DARK_TOKENS.bg.l).toBeLessThan(0.3);

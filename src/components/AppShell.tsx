@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { DictationSheet } from "@/features/dictation/DictationSheet";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 /**
  * Uygulama kabuğu — üst başlık, gezinme ve sesli giriş erişimi.
@@ -53,11 +54,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             Hesap Takip
           </Link>
 
-          <nav aria-label="Ana gezinme" className="hidden gap-1 sm:flex">
-            {NAV.map((item) => (
-              <NavLink key={item.href} {...item} active={isActive(pathname, item.href)} />
-            ))}
-          </nav>
+          <div className="flex items-center gap-2">
+            <nav aria-label="Ana gezinme" className="hidden gap-1 sm:flex">
+              {NAV.map((item) => (
+                <NavLink key={item.href} {...item} active={isActive(pathname, item.href)} />
+              ))}
+            </nav>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 

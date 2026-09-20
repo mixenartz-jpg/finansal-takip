@@ -43,6 +43,14 @@ export const TOKENS = {
   warning: { l: 0.5, c: 0.13, h: 75 },
   warningSoft: { l: 0.96, c: 0.04, h: 75 },
   danger: { l: 0.52, c: 0.19, h: 25 },
+
+  /* ── Dolu buton yazısı ──
+   * Açık temada marka/tehlike renkleri KOYU, üstüne beyaz yazı
+   * gelir. Koyu temada bu renkler AÇIK olur ve beyaz yazı okunmaz
+   * hale gelir (2.52:1 ölçüldü). Bu yüzden buton yazısı sabit
+   * `text-white` değil, temaya göre değişen bir token. */
+  onBrand: { l: 1, c: 0, h: 0 },
+  onDanger: { l: 1, c: 0, h: 0 },
 } as const satisfies Record<string, Oklch>;
 
 export type TokenName = keyof typeof TOKENS;
@@ -87,6 +95,11 @@ export const DARK_TOKENS = {
   warning: { l: 0.81, c: 0.14, h: 75 },
   warningSoft: { l: 0.28, c: 0.05, h: 75 },
   danger: { l: 0.72, c: 0.16, h: 25 },
+
+  /* Koyu temada dolu butonun yazısı KOYU: açık marka rengi üstünde
+   * beyaz yazı 2.52:1 veriyordu, zemin tonu 7.59:1 veriyor. */
+  onBrand: { l: 0.17, c: 0.008, h: 265 },
+  onDanger: { l: 0.17, c: 0.008, h: 265 },
 } as const satisfies Record<TokenName, Oklch>;
 
 /** OKLCH → sRGB (0..1 aralığında, gamut'a kırpılmış). */

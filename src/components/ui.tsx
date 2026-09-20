@@ -45,14 +45,14 @@ const BUTTON_BASE =
  */
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    "bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)] active:bg-[var(--brand-hover)]",
+    "bg-[var(--brand)] text-[var(--on-brand)] hover:bg-[var(--brand-hover)] active:bg-[var(--brand-hover)]",
   secondary:
     "bg-[var(--bg)] text-[var(--ink)] border border-[var(--border-strong)] " +
     "hover:bg-[var(--surface-2)] active:bg-[var(--surface-2)]",
   ghost:
     "bg-transparent text-[var(--ink-2)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]",
   danger:
-    "bg-[var(--danger)] text-white hover:opacity-90 active:opacity-90",
+    "bg-[var(--danger)] text-[var(--on-danger)] hover:opacity-90 active:opacity-90",
 };
 
 export function Button({
