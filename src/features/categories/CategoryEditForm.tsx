@@ -40,7 +40,20 @@ export function CategoryEditForm({
         <Input id="cat-name" value={name} onChange={(e) => setName(e.target.value)} />
       </Field>
 
-      <Field label="Tür" htmlFor="cat-kind" error={err("kind")}>
+      {/*
+        Tür, kategori kullanımdaysa veritabanında KİLİTLİ
+        (`categories_check_kind_immutable`, 0010). Alanı burada
+        karartmak için her kategorinin kullanım sayısını çekmek
+        gerekirdi — nadiren açılan bir form için gereksiz sorgu.
+        Bunun yerine kural önceden yazılıyor; kullanıcı yine de
+        denerse sayfa trigger'ın Türkçe hatasını gösteriyor.
+      */}
+      <Field
+        label="Tür"
+        htmlFor="cat-kind"
+        error={err("kind")}
+        hint="Kategoriye bağlı kayıt varsa tür değiştirilemez."
+      >
         <Select
           id="cat-kind"
           value={kind}

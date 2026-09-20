@@ -85,10 +85,18 @@ export function useUpdateCategoryKeywords() {
 /**
  * Kategorinin adını, türünü ve anahtar kelimelerini günceller.
  *
- * Tür değişimi `check_category_kind` trigger'ı tarafından
- * REDDEDİLEBİLİR: kategoriye bağlı işlemler varsa gelir kategorisi
- * gidere çevrilemez. Hata `toUserError` ile kullanıcıya anlaşılır
- * biçimde iletilir.
+ * Tür değişimi `categories_check_kind_immutable` trigger'ı (0010)
+ * tarafından REDDEDİLİR: kategoriye bağlı işlem, bütçe veya düzenli
+ * ödeme varsa tür kilitlidir. Bağlı kayıt yoksa serbesttir — yeni
+ * açılmış bir kategorinin yanlış seçilen türü düzeltilebilmeli.
+ *
+ * DİKKAT: bu kuralı uygulayan `transactions_check_category_kind`
+ * DEĞİLDİR. O trigger `transactions` üzerindedir ve yalnızca işlem
+ * yazılırken bakar; kategorinin kendisi değişirken tetiklenmez.
+ * Kapı 0010 ile kategori tarafına kuruldu.
+ *
+ * Hata `toUserError` ile kullanıcıya anlaşılır biçimde iletilir
+ * (`errors.ts` içinde "Kullanımdaki kategorinin türü" eşlemesi).
  */
 export function useUpdateCategory() {
   const qc = useQueryClient();

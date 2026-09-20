@@ -11,6 +11,13 @@ describe("toUserMessage -- tanidik kisit ihlalleri cevrilir", () => {
     ['violates foreign key constraint "transactions_account_same_owner"', /bulunamadı/i],
     ['duplicate key value violates unique constraint', /zaten var/i],
     ['violates check constraint "credit_limit_only_on_card"', /kredi kartı/i],
+    // 0010: kullanımdaki kategorinin türü kilitli. Trigger'ın kendi
+    // Türkçe mesajı geliyor; genel "tekrar deneyin" metnine düşerse
+    // kullanıcı neyi yanlış yaptığını anlayamaz.
+    [
+      "Kullanımdaki kategorinin türü değiştirilemez (bağlı kayıt: işlem). Kategoriyi arşivleyip yenisini açın.",
+      /arşivleyip/i,
+    ],
   ];
   for (const [raw, expected] of cases) {
     test(`"${raw.slice(0, 40)}..." cevrilir`, () => {
