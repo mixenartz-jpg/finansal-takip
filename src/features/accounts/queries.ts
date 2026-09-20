@@ -107,6 +107,40 @@ export function useCreateAccount() {
   });
 }
 
+/**
+ * Hesabı günceller.
+ *
+ * `opening_kurus` değişimi bakiyeyi doğrudan kaydırır (bakiye
+ * `account_balances` view'ında açılış + hareketler olarak hesaplanır),
+ * bu yüzden `qk.balances()` de geçersiz kılınır.
+ */
+export function useUpdateAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, input }: { id: string; input: AccountInput }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("accounts")
+        .update({
+          name: input.name.trim(),
+          kind: input.kind,
+          opening_kurus: input.openingKurus,
+          credit_limit_kurus: input.creditLimitKurus,
+        })
+        .eq("id", id)
+        .select(ACCOUNT_COLUMNS)
+        .single();
+
+      if (error) throw toUserError(error, "Hesap güncellenemedi");
+      return toAccount(data as AccountRow);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.accounts() });
+      void qc.invalidateQueries({ queryKey: qk.balances() });
+    },
+  });
+}
+
 export function useArchiveAccount() {
   const qc = useQueryClient();
   return useMutation({
