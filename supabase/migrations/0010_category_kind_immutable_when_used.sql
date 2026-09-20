@@ -73,6 +73,12 @@ begin
   return new;
 end; $$;
 
+-- `drop ... if exists`: bu migration Supabase SQL Editor'a ELLE
+-- yapıştırılarak çalıştırılıyor (projede CLI yok). Yanlışlıkla
+-- ikinci kez çalıştırmak "trigger already exists" hatası vermesin;
+-- fonksiyon zaten `create or replace`.
+drop trigger if exists categories_check_kind_immutable on public.categories;
+
 create trigger categories_check_kind_immutable
   before update on public.categories
   for each row execute function public.check_category_kind_immutable();
