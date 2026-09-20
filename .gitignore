@@ -10,3 +10,6 @@ next-env.d.ts
 coverage
 test-results
 playwright-report
+
+# Supabase CLI gecici dosyalari
+supabase/.temp/

@@ -162,5 +162,20 @@ function translateAuthError(error: unknown): string {
   if (message.includes("For security purposes")) {
     return "Çok sık denediniz. Bir dakika sonra tekrar deneyin.";
   }
+  if (message.includes("Signups not allowed")) {
+    return "Yeni kayıtlar şu an kapalı.";
+  }
+  if (message.includes("email address") && message.includes("invalid")) {
+    return "Bu e-posta adresi kabul edilmedi.";
+  }
+  if (message.includes("NEXT_PUBLIC_SUPABASE")) {
+    return "Uygulama yapılandırması eksik. Yöneticiye bildirin.";
+  }
+
+  // Tanınmayan hata: ayrıntı KULLANICIYA GİTMEZ, konsola gider.
+  // Aksi halde her arıza "bağlantınızı kontrol edin" gibi görünür ve
+  // gerçek sebep (yapılandırma, kota, doğrulama) teşhis edilemez.
+  // eslint-disable-next-line no-console
+  console.error(`[auth] ${message}`);
   return "Giriş yapılamadı. Bağlantınızı kontrol edip tekrar deneyin.";
 }
