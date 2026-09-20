@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Providers } from "./providers";
+import { THEME_SCRIPT } from "@/lib/ui/theme";
 import "./globals.css";
 
 /**
@@ -25,14 +26,28 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  // Tarayıcı çubuğu temayla uyumlu olsun: koyu temada beyaz bir
+  // çubuk ekranın üstünde parlar.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#121317" },
+  ],
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="tr" className={inter.variable}>
+    /*
+     * `suppressHydrationWarning`: script sunucudan gelen HTML'e
+     * `data-theme` ekler, yani istemcideki ağaç sunucununkiyle
+     * KASITLI olarak farklıdır. Bu olmasaydı React her yüklemede
+     * uyumsuzluk uyarısı basardı.
+     */
+    <html lang="tr" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>
         <Providers>{children}</Providers>
       </body>

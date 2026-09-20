@@ -29,6 +29,7 @@ export default defineConfig({
         "src/features/debts/remaining.ts",
         "src/features/reports/aggregate.ts",
         "src/features/reports/csv.ts",
+        "src/lib/ui/theme.ts",
       ],
       // Arayuz tanimlari ve veri sozlukleri: calistirilabilir dal yok,
       // kapsam yuzdesini sulandirirlar.
