@@ -28,9 +28,12 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   // Tarayıcı çubuğu temayla uyumlu olsun: koyu temada beyaz bir
   // çubuk ekranın üstünde parlar.
+  // Değerler `colors.ts` içindeki `bg` token'larının sRGB karşılığı.
+  // Elle yazılıyor çünkü tarayıcı bu etiketi CSS'ten ÖNCE okur;
+  // `themecolor.test.ts` ikisinin ayrışmasını engelliyor.
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#121317" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e0f13" },
   ],
   width: "device-width",
   initialScale: 1,
