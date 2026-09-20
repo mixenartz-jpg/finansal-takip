@@ -1,6 +1,6 @@
 # Elle Düzenleme ve Koyu Tema — Uygulama Planı
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Sitedeki her verinin elle düzenlenebilmesi (Faz 1) ve koyu tema desteği (Faz 2) — sohbet asistanının üzerine bineceği temel.
 
@@ -81,7 +81,7 @@
   - `toPatchRow(patch: TransactionPatch): Record<string, unknown>`
   - `useUpdateTransaction(): UseMutationResult<Transaction, Error, { id: string; patch: TransactionPatch }>`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `src/features/transactions/patch.test.ts`:
 
@@ -158,12 +158,12 @@ describe("toPatchRow", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- src/features/transactions/patch.test.ts`
 Expected: FAIL — `validateTransactionPatch is not a function`
 
-- [ ] **Step 3: Add types and helpers**
+- [x] **Step 3: Add types and helpers**
 
 `src/features/transactions/types.ts` sonuna ekle:
 
@@ -214,12 +214,12 @@ export function toPatchRow(patch: TransactionPatch): Record<string, unknown> {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- src/features/transactions/patch.test.ts`
 Expected: PASS (6 test)
 
-- [ ] **Step 5: Add the mutation hook**
+- [x] **Step 5: Add the mutation hook**
 
 `src/features/transactions/queries.ts` — import satırına `toPatchRow` ve `TransactionPatch` ekle, sonra `useDeleteTransaction`'dan önce:
 
@@ -256,12 +256,12 @@ export function useUpdateTransaction() {
 }
 ```
 
-- [ ] **Step 6: Verify types and full suite**
+- [x] **Step 6: Verify types and full suite**
 
 Run: `npm run typecheck && npm test`
 Expected: Hata yok, tüm testler PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/features/transactions/types.ts src/features/transactions/queries.ts src/features/transactions/patch.test.ts
@@ -287,7 +287,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: `TransactionPatch`, `validateTransactionPatch`, `useUpdateTransaction`, `Button`, `Field`, `Input`, `Select`, `parseTRYInput`, `formatTRY`
 - Produces: `<TransactionEditForm transaction categories accounts saving onSave onCancel />` where `onSave: (patch: TransactionPatch) => void`
 
-- [ ] **Step 1: Create the edit form**
+- [x] **Step 1: Create the edit form**
 
 `src/features/transactions/TransactionEditForm.tsx`:
 
@@ -499,7 +499,7 @@ function formatAmountForInput(kurus: Kurus): string {
 }
 ```
 
-- [ ] **Step 2: Add `onEdit` to TransactionList**
+- [x] **Step 2: Add `onEdit` to TransactionList**
 
 `src/features/transactions/TransactionList.tsx` — üç değişiklik:
 
@@ -547,7 +547,7 @@ function PencilGlyph() {
 }
 ```
 
-- [ ] **Step 3: Wire the edit form into the transactions page**
+- [x] **Step 3: Wire the edit form into the transactions page**
 
 `src/app/(app)/islemler/page.tsx` — importlara ekle:
 ```ts
@@ -604,12 +604,12 @@ Bileşen gövdesine ekle:
       )}
 ```
 
-- [ ] **Step 4: Verify build and tests**
+- [x] **Step 4: Verify build and tests**
 
 Run: `npm run typecheck && npm test && npm run lint`
 Expected: Hata yok
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/features/transactions/ "src/app/(app)/islemler/page.tsx"
@@ -636,7 +636,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
   - `useUpdateAccount(): UseMutationResult<Account, Error, { id: string; input: AccountInput }>`
   - `<AccountEditForm account saving onSave onCancel />` where `onSave: (input: AccountInput) => void`
 
-- [ ] **Step 1: Add the mutation**
+- [x] **Step 1: Add the mutation**
 
 `src/features/accounts/queries.ts` — `useArchiveAccount`'tan önce ekle:
 
@@ -676,7 +676,7 @@ export function useUpdateAccount() {
 }
 ```
 
-- [ ] **Step 2: Create the account edit form**
+- [x] **Step 2: Create the account edit form**
 
 `src/features/accounts/AccountEditForm.tsx`:
 
@@ -825,7 +825,7 @@ function formatAmountForInput(kurus: Kurus): string {
 }
 ```
 
-- [ ] **Step 3: Wire it into the accounts page**
+- [x] **Step 3: Wire it into the accounts page**
 
 `src/app/(app)/hesaplar/page.tsx`'i tamamen değiştir:
 
@@ -938,12 +938,12 @@ function PencilGlyph() {
 }
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `npm run typecheck && npm test && npm run lint`
 Expected: Hata yok
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/features/accounts/ "src/app/(app)/hesaplar/page.tsx"
@@ -972,7 +972,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
   - `useUpdateCategory(): UseMutationResult<Category, Error, { id: string; patch: CategoryPatch }>`
   - `useArchiveCategory(): UseMutationResult<void, Error, string>`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `src/features/categories/patch.test.ts`:
 
@@ -1013,12 +1013,12 @@ describe("parseKeywords", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- src/features/categories/patch.test.ts`
 Expected: FAIL — `parseKeywords is not a function`
 
-- [ ] **Step 3: Add type and helper**
+- [x] **Step 3: Add type and helper**
 
 `src/features/categories/types.ts` — dosyanın EN ÜSTÜNE import ekle:
 
@@ -1062,12 +1062,12 @@ export function parseKeywords(raw: string): string[] {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- src/features/categories/patch.test.ts`
 Expected: PASS (6 test)
 
-- [ ] **Step 5: Add the mutations**
+- [x] **Step 5: Add the mutations**
 
 `src/features/categories/queries.ts` — import satırına `CategoryPatch` ekle, sonra `useUpdateCategoryKeywords`'ten sonra:
 
@@ -1133,12 +1133,12 @@ export function useArchiveCategory() {
 }
 ```
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run: `npm run typecheck && npm test`
 Expected: Hata yok, tüm testler PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/features/categories/
@@ -1164,7 +1164,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: `CategoryPatch`, `parseKeywords`, `validateCategory`, `useCategories`, `useUpdateCategory`, `useArchiveCategory`, `useCreateCategory`
 - Produces: `<CategoryEditForm category saving onSave onCancel />` where `onSave: (patch: CategoryPatch) => void`
 
-- [ ] **Step 1: Create the category edit form**
+- [x] **Step 1: Create the category edit form**
 
 `src/features/categories/CategoryEditForm.tsx`:
 
@@ -1259,7 +1259,7 @@ export function CategoryEditForm({
 }
 ```
 
-- [ ] **Step 2: Create the categories page**
+- [x] **Step 2: Create the categories page**
 
 `src/app/(app)/kategoriler/page.tsx`:
 
@@ -1446,7 +1446,7 @@ function ArchiveGlyph() {
 
 Not: `Badge` bileşeninin imzasını `src/components/ui.tsx:204` satırından doğrula; `children` dışında zorunlu bir prop varsa çağrıyı ona göre düzelt.
 
-- [ ] **Step 3: Add the nav link**
+- [x] **Step 3: Add the nav link**
 
 `src/components/AppShell.tsx` — `NAV` dizisinde `{ href: "/hesaplar", label: "Hesaplar" }` satırından sonra ekle:
 
@@ -1456,12 +1456,12 @@ Not: `Badge` bileşeninin imzasını `src/components/ui.tsx:204` satırından do
 
 Not: Mobil alt gezinmede artık 8 öğe var. Dar ekranda (320px) taşma olup olmadığını kontrol et; taşıyorsa alt gezinmeye `overflow-x-auto` ekle.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `npm run typecheck && npm test && npm run lint && npm run build`
 Expected: Hata yok
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/features/categories/ "src/app/(app)/kategoriler/" src/components/AppShell.tsx
@@ -1490,7 +1490,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 **Kritik not:** Mevcut senkron testi her CSS değişkeninin İLK eşleşmesini arar. Koyu blok eklenince `--bg` iki kez geçer ve test sessizce yalnızca açık değeri doğrulamaya devam eder. Bu görev testi blok-farkındalıklı hale getirmeden bitmiş sayılmaz.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `src/lib/ui/colors.contrast.test.ts` sonuna ekle:
 
@@ -1547,12 +1547,12 @@ describe("koyu tema kontrastı -- WCAG AA", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- src/lib/ui/colors.contrast.test.ts`
 Expected: FAIL — `DARK_TOKENS` export edilmemiş
 
-- [ ] **Step 3: Add DARK_TOKENS**
+- [x] **Step 3: Add DARK_TOKENS**
 
 `src/lib/ui/colors.ts` — `TOKENS` tanımından sonra ekle:
 
@@ -1602,7 +1602,7 @@ export const DARK_TOKENS = {
 
 Not: `satisfies Record<TokenName, Oklch>` bir token unutulursa derleme hatası verir.
 
-- [ ] **Step 4: Run test — ayarla ve tekrarla**
+- [x] **Step 4: Run test — ayarla ve tekrarla**
 
 Run: `npm test -- src/lib/ui/colors.contrast.test.ts`
 
@@ -1613,7 +1613,7 @@ Bir çift eşiğin altında kalırsa hata mesajı gerçek oranı yazar. Düzeltm
 
 Testler yeşile dönene kadar tekrarla.
 
-- [ ] **Step 5: Make the CSS↔TS sync test block-aware**
+- [x] **Step 5: Make the CSS↔TS sync test block-aware**
 
 `src/lib/ui/colors.contrast.test.ts` içindeki `"token senkronu"` describe bloğunu şu şekilde değiştir — mevcut `const css = readFileSync(...)` satırından sonra ekle ve regex'i bloklara göre çalıştır:
 
@@ -1668,7 +1668,7 @@ Ardından mevcut `for (const [token, cssVar] of Object.entries(CSS_VAR_BY_TOKEN)
   }
 ```
 
-- [ ] **Step 6: Add dark tokens to globals.css**
+- [x] **Step 6: Add dark tokens to globals.css**
 
 `src/app/globals.css` — mevcut `:root {` satırını işaretle ve koyu blokları ekle.
 
@@ -1755,12 +1755,12 @@ Ardından mevcut `for (const [token, cssVar] of Object.entries(CSS_VAR_BY_TOKEN)
 
 Not: `/* THEME:DARK */` işareti `@media` bloğunun üstünde; `extractBlock` oradan sonraki ilk `{` ile başlar ve iç içe blokları sayarak `@media`'nın tamamını alır, içindeki `:root:not(...)` kuralları dahil.
 
-- [ ] **Step 7: Run all tests**
+- [x] **Step 7: Run all tests**
 
 Run: `npm test -- src/lib/ui/colors.contrast.test.ts`
 Expected: PASS — hem açık hem koyu kontrast, hem de her iki blok için senkron testleri
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/lib/ui/colors.ts src/lib/ui/colors.contrast.test.ts src/app/globals.css
@@ -1794,7 +1794,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
   - `readStoredTheme(storage: Pick<Storage, "getItem">): Theme`
   - `THEME_SCRIPT: string`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `src/lib/ui/theme.test.ts`:
 
@@ -1922,12 +1922,12 @@ describe("THEME_SCRIPT", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- src/lib/ui/theme.test.ts`
 Expected: FAIL — `./theme` modülü bulunamadı
 
-- [ ] **Step 3: Create the theme module**
+- [x] **Step 3: Create the theme module**
 
 `src/lib/ui/theme.ts`:
 
@@ -2013,12 +2013,12 @@ export function applyTheme(theme: Theme, root: ThemeTarget): void {
 export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('${THEME_STORAGE_KEY}');if(t==='dark'||t==='light'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`;
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- src/lib/ui/theme.test.ts`
 Expected: PASS (14 test)
 
-- [ ] **Step 4b: Add theme.ts to the coverage scope**
+- [x] **Step 4b: Add theme.ts to the coverage scope**
 
 `vitest.config.mts` — `coverage.include` dizisine ekle:
 
@@ -2031,7 +2031,7 @@ Gerekçe: `include` açık bir liste. Eklenmezse `theme.ts` kapsam raporuna hiç
 Run: `npm run test:coverage`
 Expected: Eşikler (lines 80, functions 80, branches 75) korunur
 
-- [ ] **Step 5: Add the script to the layout**
+- [x] **Step 5: Add the script to the layout**
 
 `src/app/layout.tsx`:
 
@@ -2074,12 +2074,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run: `npm run typecheck && npm test && npm run lint`
 Expected: Hata yok
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/lib/ui/theme.ts src/lib/ui/theme.test.ts src/app/layout.tsx
@@ -2105,7 +2105,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: `Theme`, `readStoredTheme`, `applyTheme`, `THEME_STORAGE_KEY`
 - Produces: `<ThemeToggle />` — props almaz
 
-- [ ] **Step 1: Create the toggle**
+- [x] **Step 1: Create the toggle**
 
 `src/components/ThemeToggle.tsx`:
 
@@ -2200,7 +2200,7 @@ export function ThemeToggle() {
 }
 ```
 
-- [ ] **Step 2: Add it to the header**
+- [x] **Step 2: Add it to the header**
 
 `src/components/AppShell.tsx`:
 
@@ -2222,27 +2222,32 @@ import { ThemeToggle } from "@/components/ThemeToggle";
           </div>
 ```
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 Run: `npm run typecheck && npm test && npm run lint && npm run build`
 Expected: Hata yok
 
-- [ ] **Step 4: Manual check in the browser**
+- [x] **Step 4: Manual check in the browser**
 
 Run: `npm run dev`
 
 Kontrol listesi:
-- [ ] Koyu seç → sayfa koyuya döner
-- [ ] Sayfayı yenile → koyu kalır, açılışta BEYAZ PARLAMA OLMAZ
-- [ ] Sistem seç → işletim sistemi temasını izler
-- [ ] Sistem temasını değiştir → sayfa yenilemeden tepki verir
-- [ ] Açık seç, sistem koyuyken → açık kalır (sistem ezmez)
-- [ ] Koyu temada her sayfayı gez: Panel, İşlemler, Bütçe, Düzenli, Borç, Rapor, Hesaplar, Kategori — beyaz leke veya okunmayan metin olmamalı
-- [ ] Koyu temada grafikler (`CashflowChart`, `CategoryChart`) okunabilir
+- [x] Koyu seç → sayfa koyuya döner
+- [x] Sayfayı yenile → koyu kalır, açılışta BEYAZ PARLAMA OLMAZ
+- [x] Sistem seç → işletim sistemi temasını izler
+- [x] Sistem temasını değiştir → sayfa yenilemeden tepki verir
+- [x] Açık seç, sistem koyuyken → açık kalır (sistem ezmez)
+- [ ] Koyu temada her sayfayı gez: Panel, İşlemler, Bütçe, Düzenli, Borç, Rapor, Hesaplar, Kategori — beyaz leke veya okunmayan metin olmamalı  
+      ⚠️ ELLE DOĞRULANMADI — bu sayfalar giriş gerektiriyor, anon E2E projesi ulaşamıyor.
+      Dolaylı kapılar: sabit renk taraması temiz (`text-white`/`bg-white`/hex/Tailwind renk adı yok)
+      ve tüm bileşenler `components/ui.tsx` dağarcığını kullanıyor; o dağarcık koyu temada axe ile taranıyor.
+- [ ] Koyu temada grafikler (`CashflowChart`, `CategoryChart`) okunabilir  
+      ⚠️ ELLE DOĞRULANMADI — aynı sebep. Grafikler token okuyor (sabit renk taraması temiz),
+      ama gerçek ekran doğrulaması yapılmadı.
 
 Beyaz leke bulursan: o bileşende sabit renk kullanılmıştır (`bg-white`, `text-black`, `#hex`). Token'a çevir.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/ThemeToggle.tsx src/components/AppShell.tsx
@@ -2265,13 +2270,13 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `@axe-core/playwright`
 
-- [ ] **Step 1: Find the existing accessibility test**
+- [x] **Step 1: Find the existing accessibility test**
 
 Run: `ls e2e/ && grep -rln "AxeBuilder\|axe" e2e/`
 
 Mevcut dosyanın desenini izle. Yeni test dosyası oluşturma — mevcut olanı genişlet.
 
-- [ ] **Step 2: Add dark theme and new pages to the axe sweep**
+- [x] **Step 2: Add dark theme and new pages to the axe sweep**
 
 Mevcut axe testine iki ekleme yap:
 
@@ -2286,14 +2291,14 @@ Mevcut axe testine iki ekleme yap:
 
 Bu, her sayfanın koyu temada da taranmasını sağlar. Kontrast ihlalleri Task 6'daki birim testlerince zaten kapatıldı; axe burada gerçek DOM üzerinde doğrular.
 
-- [ ] **Step 3: Run E2E**
+- [x] **Step 3: Run E2E**
 
 Run: `npm run e2e`
 Expected: PASS
 
 İhlal çıkarsa: axe hangi öğeyi ve hangi kuralı belirtir. Kontrast ihlaliyse ilgili token'ı `colors.ts` içinde düzelt ve `globals.css` ile senkronla (senkron testi yakalar).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add e2e/
@@ -2306,20 +2311,20 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ### Task 10: Kod incelemesi
 
-- [ ] **Step 1: Run the code reviewer**
+- [x] **Step 1: Run the code reviewer**
 
 Faz 1 ve 2'de yazılan tüm kod için `code-reviewer` agent'ını çalıştır. Global kural: kod yazıldıktan sonra inceleme zorunlu.
 
-- [ ] **Step 2: Address CRITICAL and HIGH findings**
+- [x] **Step 2: Address CRITICAL and HIGH findings**
 
 CRITICAL bulgular birleştirmeyi ENGELLER. HIGH bulgular düzeltilmeli. MEDIUM değerlendirilir.
 
-- [ ] **Step 3: Run the full suite one last time**
+- [x] **Step 3: Run the full suite one last time**
 
 Run: `npm run typecheck && npm run lint && npm test && npm run build`
 Expected: Hepsi yeşil
 
-- [ ] **Step 4: Push**
+- [x] **Step 4: Push**
 
 ```bash
 git push origin main
@@ -2338,3 +2343,39 @@ Faz 3–5 planı yazılırken bu planın ürettiği arayüzler hazır olacak:
 - Koyu temada çalışan token katmanı
 
 Sohbet asistanının yazma araçları doğrudan bu hook'ları çağırır.
+
+---
+
+## Bu plandan ÖNCE var olan, kapatılmamış sorunlar
+
+Bu iki sorun Faz 1–2'den gelmiyor; `main` üzerinde de aynı şekilde
+duruyorlar. Plan kapsamı dışında oldukları için burada kayda geçiriliyor.
+
+### 1. `npm run lint` çalışmıyor
+
+ESLint 9.39.5 config yüklerken çöküyor:
+`TypeError: Converting circular structure to JSON` (eslintrc uyumluluk
+katmanı, `plugins.react` döngüsü). `main` üzerinde de aynı hata alınıyor,
+yani bu dalın getirdiği bir şey değil.
+
+Etkisi: hiçbir lint kapısı çalışmıyor. Tip denetimi (`tsc --noEmit`) ve
+testler bu boşluğun bir kısmını kapatıyor ama tamamını değil.
+
+### 2. Kimlik doğrulamalı E2E projesi hiç koşmadı
+
+`playwright.config.ts` bir `setup` projesi tanımlıyor ve
+`e2e/auth.setup.ts` dosyasına işaret ediyor. O dosya HİÇ var olmadı
+(`git log --all -- e2e/auth.setup.ts` boş). Dolayısıyla `app` projesi —
+`dikte.spec.ts` içindeki 5 test — çalıştırılamıyor.
+
+Etkisi: giriş gerektiren her sayfa (Panel, İşlemler, Bütçe, Düzenli,
+Borç, Rapor, Hesaplar, Kategoriler) uçtan uca doğrulanamıyor. Task 9'un
+"`/kategoriler` sayfasını axe taramasına ekle" adımı bu yüzden
+uygulanamadı; erişilebilirlik kapısı yalnızca `/giris` yüzeyini tarıyor.
+
+`Sheet` bileşeninin klavye sözleşmesi bu boşluk nedeniyle dolaylı
+sınanıyor (`e2e/a11y.spec.ts` → "kipli diyalog klavye sözleşmesi"):
+seçici ve odak sarması gerçek tarayıcıda doğrulanıyor, ama gerçek
+diyalog örneği üzerinde değil.
+
+Bu iki maddenin kapatılması ayrı bir iş kalemi.
