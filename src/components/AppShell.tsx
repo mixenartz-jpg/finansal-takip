@@ -24,6 +24,7 @@ const NAV = [
   { href: "/borclar", label: "Borç" },
   { href: "/rapor", label: "Rapor" },
   { href: "/hesaplar", label: "Hesaplar" },
+  { href: "/kategoriler", label: "Kategori" },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -75,7 +76,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         aria-label="Ana gezinme"
         className="fixed inset-x-0 bottom-0 z-(--z-sticky) border-t border-[var(--border)] bg-[var(--bg)] sm:hidden"
       >
-        <div className="mx-auto flex max-w-3xl items-center justify-around px-2 py-2">
+        {/* Sekiz öğe 320px'e sığmıyor: yatay kaydırma taşmayı
+            engeller. `justify-around` yerine `gap` — kaydırılabilir
+            bir şeridi eşit dağıtmak öğeleri kırpar. */}
+        <div className="mx-auto flex max-w-3xl items-center gap-1 overflow-x-auto px-2 py-2">
           {NAV.map((item) => (
             <NavLink key={item.href} {...item} active={isActive(pathname, item.href)} />
           ))}
@@ -153,7 +157,7 @@ function NavLink({
       href={href}
       aria-current={active ? "page" : undefined}
       className={[
-        "rounded-[var(--r-md)] px-3 py-1.5 text-sm font-medium",
+        "shrink-0 rounded-[var(--r-md)] px-3 py-1.5 text-sm font-medium",
         "transition-colors duration-[var(--dur-fast)]",
         active
           ? "bg-[var(--brand-soft)] text-[var(--brand-ink)]"
