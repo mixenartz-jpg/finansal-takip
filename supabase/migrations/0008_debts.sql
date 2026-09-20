@@ -109,8 +109,19 @@ create policy debt_payments_delete on public.debt_payments
 -- ★ Sahiplik sertleştirmesi — 0002 / 0006 / 0007 ile aynı desen.
 -- RLS `user_id`'yi korur ama `debt_id` başka kullanıcının borcunu
 -- gösterebilir; composite FK bunu imkânsız kılar.
+-- ── SIRA ÖNEMLİ ──
+-- Composite FK, hedef tabloda eşleşen bir unique constraint ZATEN
+-- varken kurulabilir. Bu yüzden iki benzersizlik kısıtı, onlara
+-- referans veren FK'lerden ÖNCE eklenir. Ters sırada Postgres
+-- `42830: there is no unique constraint matching given keys`
+-- hatası verir.
 alter table public.debts
   add constraint debts_id_user_uk unique (id, user_id);
+
+-- `transactions` üzerinde (id, user_id) benzersizliği, aşağıdaki
+-- `debt_payments_transaction_same_owner` FK'sinin ön koşulu.
+alter table public.transactions
+  add constraint transactions_id_user_uk unique (id, user_id);
 
 alter table public.debt_payments
   add constraint debt_payments_debt_same_owner
@@ -119,11 +130,6 @@ alter table public.debt_payments
   add constraint debt_payments_transaction_same_owner
     foreign key (transaction_id, user_id)
     references public.transactions (id, user_id) on delete set null;
-
--- `transactions` üzerinde (id, user_id) benzersizliği gerekiyor ki
--- yukarıdaki composite FK ona referans verebilsin.
-alter table public.transactions
-  add constraint transactions_id_user_uk unique (id, user_id);
 
 -- ───────────────────────────── Trigger'lar ──────────────────────────
 create trigger debts_stamp_user_id
