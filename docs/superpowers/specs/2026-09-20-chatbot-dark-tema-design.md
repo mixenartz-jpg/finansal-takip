@@ -46,7 +46,7 @@ Bütçe, düzenli ödeme ve borç tarafı tamdır; dokunulmaz.
 | Konu | Karar |
 |---|---|
 | Asistanın yazma yetkisi | **Onay kartıyla.** Okuma serbest, her yazma onaylanır. |
-| AI motoru | **Gemini API, sunucu tarafı.** Anahtar tarayıcıya hiç gitmez. |
+| AI motoru | **Gemini API, sunucu tarafı.** Anahtar tarayıcıya hiç gitmez. Model zinciri aşağıda. |
 | Erişim kapsamı | İşlemler + hesaplar/bakiyeler + kategoriler/bütçeler + düzenli/borçlar (tümü). |
 | Koyu tema | **Sistem tercihi + manuel geçiş** (Açık / Koyu / Sistem). |
 | Sıralama | **Önce elle düzenleme, sonra asistan.** |
@@ -93,6 +93,36 @@ Gemini hiçbir şey yapmaz; yalnızca doğal dili **yapılandırılmış niyete*
 - `service_role` anahtarı hiç devreye girmez; RLS dokunulmadan kalır.
 - Niyet nesnesi istemcide şema doğrulamasından geçer. Gemini tanımsız bir araç adı veya bozuk argüman üretirse istek reddedilir, kullanıcıya hata gösterilir.
 - Yazma yolu her zaman kullanıcı oturumuyla, kullanıcının kendi RLS kapsamında çalışır. Asistan başka bir kullanıcının verisine teknik olarak erişemez.
+
+### Model zinciri
+
+Tek model değil, kota tükenince sıradakine düşen bir zincir. Ücretsiz katmanda her Flash modelinin günlük istek kotası ayrıdır; zincir toplam kapasiteyi ~5'ten ~35'e çıkarır.
+
+| Sıra | Model | Rol | Günlük kota |
+|---|---|---|---|
+| 0 | Kural motoru (`RuleTransactionParser`) | Basit cümleler — ücretsiz, anlık, çevrimdışı | ∞ |
+| 1 | `gemini-3.8-flash` | Ana chatbot beyni | 5 |
+| 2 | `gemini-3.7-flash` | 1 tükenince | 5 |
+| 3 | `gemini-3.6-flash` | 2 tükenince | 5 |
+| 4 | `gemini-3.5-flash` | 3 tükenince | 5 |
+| 5 | `gemini-3.5-flash-lite` | Son çare, en cömert kota | 15 |
+
+Kural motoru HER ZAMAN önce çalışır ve güveni eşiğin üstündeyse hiç ağ çağrısı yapılmaz. Model zinciri yalnızca kural motorunun zorlandığı cümlelerde devreye girer.
+
+**Düşme koşulu:** yalnızca kota/oran hatası (HTTP 429) ve geçici sunucu hatası (5xx). Geçersiz anahtar (401/403) veya bozuk istek (400) zinciri ilerletmez — aynı hata her modelde tekrarlanır ve beş çağrı boşa gider.
+
+### Live API neden kullanılmıyor
+
+`gemini-3.8-live` bu mimariye uymuyor. Sebep zekâsı değil, **bağlantı biçimi**:
+
+- Live API **kalıcı WebSocket (WSS)** gerektirir; istek/cevap HTTP desteklemez. `/api/chat` route handler'ı ise istek alıp cevap dönen, sonra biten bir fonksiyondur.
+- Sesli ajanlar için tasarlanmıştır. Bu uygulamada ses **tarayıcıda** (Web Speech API) metne çevriliyor; sunucuya zaten metin gidiyor. Live API'nin asıl değeri olan ses akışı hiç kullanılmayacak, ama bedeli (WebSocket altyapısı) ödenecekti.
+
+İleride "telefonla konuşur gibi" gerçek sesli asistan istenirse `gemini-3.8-live` doğru seçimdir ve ayrı bir yol olarak eklenir. Bu spec'in kapsamı dışındadır.
+
+### Dikte: tarayıcı ses tanıma korunur
+
+`gemini-3.5-transcribe` yedek olarak EKLENMEZ. Web Speech API Chrome/Edge'de ücretsiz ve sınırsız çalışıyor; Transcribe'ın günlük kotası 3 istek, yani Firefox/Safari kullanıcısı için anlamlı bir yedek oluşturmuyor. O tarayıcılarda kullanıcı sohbet kutusuna yazarak devam eder.
 
 ### Okuma tarafı
 
@@ -189,6 +219,7 @@ Faz 1'den bağımsız; sırası değiştirilebilir.
 
 ### Faz 3 — Asistan altyapısı
 - `/api/chat` route'u, Gemini araç tanımları, niyet şeması ve doğrulaması
+- Model zinciri: 429/5xx'te sıradaki modele düşen sarmalayıcı + testleri
 - Arayüz yok; testlerle sürülür
 - Gemini'nin güncel araç-çağırma API'si `context7` MCP ile doğrulanır, ezberden yazılmaz
 
