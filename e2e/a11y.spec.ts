@@ -101,6 +101,86 @@ test.describe("erişilebilirlik", () => {
     await ctx.close();
   });
 
+  /**
+   * ── KOYU TEMA ──
+   *
+   * Kontrast oranları birim testlerinde (colors.contrast.test.ts)
+   * token düzeyinde doğrulanıyor, ama o testler token'ların GERÇEKTEN
+   * kullanıldığını bilmez: bir bileşen sabit renk kullanıyorsa
+   * (`text-white`, `bg-white`) token testi yeşil kalır ve koyu temada
+   * okunmaz bir yüzey ortaya çıkar. Axe hesaplanmış renkleri okur,
+   * bu yüzden o boşluğu kapatır.
+   *
+   * Nitekim ilk uygulamada birincil butonun `text-white` olması koyu
+   * temada 2.52:1 veriyordu; bu kapı o sınıf hataları yakalar.
+   */
+  test("★ KOYU temada WCAG ihlali yok (sistem tercihi)", async ({ browser }) => {
+    const ctx = await browser.newContext({ colorScheme: "dark" });
+    const page = await ctx.newPage();
+    await page.goto("/giris");
+
+    const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
+    const summary = results.violations
+      .map((v) => `${v.id} (${v.impact}): ${v.nodes.length} öğe`)
+      .join("\n");
+    expect(summary, summary).toBe("");
+    await ctx.close();
+  });
+
+  test("★ KOYU temada WCAG ihlali yok (elle seçim)", async ({ browser }) => {
+    // Sistem AÇIK derken kullanıcı KOYU seçmiş: `data-theme="dark"`
+    // yolu, medya sorgusu yolundan ayrı bir CSS bloğu — ayrı test
+    // edilmezse biri bozulurken diğeri yeşil kalabilir.
+    const ctx = await browser.newContext({ colorScheme: "light" });
+    await ctx.addInitScript(() => {
+      try {
+        localStorage.setItem("hesap-takip-theme", "dark");
+      } catch {
+        // Depolama engelliyse test anlamsızlaşır ama çökmemeli.
+      }
+    });
+    const page = await ctx.newPage();
+    await page.goto("/giris");
+
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+    const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
+    const summary = results.violations
+      .map((v) => `${v.id} (${v.impact}): ${v.nodes.length} öğe`)
+      .join("\n");
+    expect(summary, summary).toBe("");
+    await ctx.close();
+  });
+
+  test("★ elle AÇIK seçimi sistem koyu tercihini ezer", async ({ browser }) => {
+    const ctx = await browser.newContext({ colorScheme: "dark" });
+    await ctx.addInitScript(() => {
+      try {
+        localStorage.setItem("hesap-takip-theme", "light");
+      } catch {
+        // yukarıdaki gerekçe
+      }
+    });
+    const page = await ctx.newPage();
+    await page.goto("/giris");
+
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+    // Zemin gerçekten açık mı? Öznitelik doğru ama CSS bloğu yanlış
+    // yazılmışsa öznitelik tek başına bir şey kanıtlamaz.
+    const isLight = await page.evaluate(() => {
+      const c = document.createElement("canvas");
+      c.width = c.height = 1;
+      const g = c.getContext("2d")!;
+      g.fillStyle = getComputedStyle(document.body).backgroundColor;
+      g.fillRect(0, 0, 1, 1);
+      const [r, gg, b] = g.getImageData(0, 0, 1, 1).data;
+      return (r + gg + b) / 3 > 200;
+    });
+    expect(isLight, "elle açık seçilmesine rağmen zemin koyu").toBe(true);
+    await ctx.close();
+  });
+
   test("PWA ikonları ve manifest servis ediliyor", async ({ request }) => {
     // Manifest var olmayan bir ikona işaret ederse uygulama ana
     // ekrana eklenemez ve bu sessizce başarısız olur.
