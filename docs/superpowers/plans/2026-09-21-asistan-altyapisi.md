@@ -85,7 +85,7 @@ src/app/api/chat/
 **Interfaces:**
 - Produces: `TOOLS` (Gemini'ye giden dizi), `TOOL_NAMES`, `ToolName`, `WRITE_TOOLS`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/features/assistant/tools.test.ts`:
 
@@ -206,12 +206,12 @@ describe("TOOLS -- Interactions API biçimi", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/features/assistant/tools.test.ts`
 Expected: FAIL — `Cannot find module './tools'`
 
-- [ ] **Step 3: Create the tool definitions**
+- [x] **Step 3: Create the tool definitions**
 
 Create `src/features/assistant/tools.ts`:
 
@@ -668,12 +668,12 @@ export function isWriteTool(name: string): boolean {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/features/assistant/tools.test.ts`
 Expected: PASS (11 test)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/features/assistant/tools.ts src/features/assistant/tools.test.ts
@@ -692,7 +692,7 @@ git commit -m "feat: asistan araç tanımları"
 - Consumes: `isToolName`, `isWriteTool` (Task 1)
 - Produces: `parseIntent(raw: unknown): IntentResult`, `Intent`, `MAX_BATCH`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/features/assistant/intent.test.ts`:
 
@@ -948,12 +948,12 @@ describe("parseIntent -- bilinmeyen argüman ELENİR", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/features/assistant/intent.test.ts`
 Expected: FAIL — `Cannot find module './intent'`
 
-- [ ] **Step 3: Write the validator**
+- [x] **Step 3: Write the validator**
 
 Create `src/features/assistant/intent.ts`:
 
@@ -1138,14 +1138,14 @@ export function parseIntent(raw: unknown): IntentResult {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/features/assistant/intent.test.ts`
 Expected: PASS
 
 Bir test kırmızı kalırsa: hata mesajı hangi beklentinin karşılanmadığını söyler. `checkArg` içindeki sıra önemli — `key.endsWith("Kurus")` kontrolü `enum` kontrolünden ÖNCE gelmeli, yoksa tutar alanı yanlış dalda doğrulanır.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/features/assistant/intent.ts src/features/assistant/intent.test.ts
@@ -1163,7 +1163,7 @@ git commit -m "feat: niyet doğrulaması ve toplu işlem sınırı"
 **Interfaces:**
 - Produces: `MODEL_CHAIN`, `shouldFallback(status: number): boolean`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/features/assistant/models.test.ts`:
 
@@ -1242,12 +1242,12 @@ describe("shouldFallback -- ★ hangi hata zinciri ilerletir", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/features/assistant/models.test.ts`
 Expected: FAIL — `Cannot find module './models'`
 
-- [ ] **Step 3: Write the model chain**
+- [x] **Step 3: Write the model chain**
 
 Create `src/features/assistant/models.ts`:
 
@@ -1289,12 +1289,12 @@ export function shouldFallback(status: number): boolean {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/features/assistant/models.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/features/assistant/models.ts src/features/assistant/models.test.ts
@@ -1312,7 +1312,7 @@ git commit -m "feat: model zinciri ve düşme politikası"
 **Interfaces:**
 - Produces: `SYSTEM_INSTRUCTION`, `buildContextBlock(ctx: AssistantContext): string`, `AssistantContext`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/features/assistant/prompt.test.ts`:
 
@@ -1387,12 +1387,12 @@ describe("buildContextBlock", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/features/assistant/prompt.test.ts`
 Expected: FAIL — `Cannot find module './prompt'`
 
-- [ ] **Step 3: Write the prompt builder**
+- [x] **Step 3: Write the prompt builder**
 
 Create `src/features/assistant/prompt.ts`:
 
@@ -1453,12 +1453,12 @@ const ACCOUNT_LABELS: Record<AssistantContext["accounts"][number]["kind"], strin
 };
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/features/assistant/prompt.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/features/assistant/prompt.ts src/features/assistant/prompt.test.ts
@@ -1477,7 +1477,7 @@ git commit -m "feat: sistem yönergesi ve bağlam özeti"
 - Consumes: `TOOLS` (Task 1), `SYSTEM_INSTRUCTION`/`buildContextBlock` (Task 4)
 - Produces: `callGemini(opts): Promise<GeminiCallResult>`, `GEMINI_ENDPOINT`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/features/assistant/gemini.test.ts`:
 
@@ -1698,12 +1698,12 @@ describe("callGemini -- cevap ayrıştırma", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/features/assistant/gemini.test.ts`
 Expected: FAIL — `Cannot find module './gemini'`
 
-- [ ] **Step 3: Write the client**
+- [x] **Step 3: Write the client**
 
 Create `src/features/assistant/gemini.ts`:
 
@@ -1823,12 +1823,12 @@ export async function callGemini(opts: CallGeminiOptions): Promise<GeminiCallRes
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/features/assistant/gemini.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/features/assistant/gemini.ts src/features/assistant/gemini.test.ts
@@ -1847,7 +1847,7 @@ git commit -m "feat: Gemini Interactions API istemcisi"
 - Consumes: `MODEL_CHAIN`/`shouldFallback` (Task 3), `callGemini` (Task 5), `parseIntent` (Task 2)
 - Produces: `runAssistant(opts): Promise<AssistantResult>`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/features/assistant/chain.test.ts`:
 
@@ -2004,12 +2004,12 @@ describe("runAssistant -- ★ bozuk niyet reddedilir", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/features/assistant/chain.test.ts`
 Expected: FAIL — `Cannot find module './chain'`
 
-- [ ] **Step 3: Write the chain runner**
+- [x] **Step 3: Write the chain runner**
 
 Create `src/features/assistant/chain.ts`:
 
@@ -2088,12 +2088,12 @@ function errorFor(status: number): string {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/features/assistant/chain.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/features/assistant/chain.ts src/features/assistant/chain.test.ts
@@ -2111,7 +2111,7 @@ git commit -m "feat: model zinciri yürütücüsü"
 **Interfaces:**
 - Consumes: `runAssistant` (Task 6), `createClient` from `@/lib/supabase/server`
 
-- [ ] **Step 1: Create the route handler**
+- [x] **Step 1: Create the route handler**
 
 Create `src/app/api/chat/route.ts`:
 
@@ -2250,7 +2250,7 @@ function todayInIstanbul(): string {
 }
 ```
 
-- [ ] **Step 2: Enable the env var in `.env.example`**
+- [x] **Step 2: Enable the env var in `.env.example`**
 
 `.env.example` içindeki yorumlu satırı aç — anahtar adı değişmiyor, yalnızca artık kullanıldığı belli olsun:
 
@@ -2262,19 +2262,19 @@ function todayInIstanbul(): string {
 GEMINI_API_KEY=
 ```
 
-- [ ] **Step 3: Verify types and full suite**
+- [x] **Step 3: Verify types and full suite**
 
 Run: `npx tsc --noEmit && npm test`
 Expected: tsc çıktısı boş, tüm testler PASS
 
 `getClaims()` imzası hakkında hata alırsan: `src/lib/supabase/middleware.ts` aynı çağrıyı kullanıyor, oradaki kullanımı örnek al.
 
-- [ ] **Step 4: Verify the build**
+- [x] **Step 4: Verify the build**
 
 Run: `npm run build`
 Expected: `✓ Compiled successfully` ve rota listesinde `/api/chat` görünür
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/app/api/chat/route.ts .env.example
@@ -2286,6 +2286,20 @@ git commit -m "feat: /api/chat uç noktası"
 ## Task 8: Uçtan uca elle doğrulama
 
 **Files:** yok (yalnızca doğrulama)
+
+> **DURUM: KULLANICIYA KALDI.** Bu görev gerçek bir `GEMINI_API_KEY`
+> ve tarayıcıda açılmış bir oturum gerektiriyor; ikisi de bende yok.
+>
+> Anahtar gerektirmeyen kapılar YERİNE GETİRİLDİ ve gerçek sunucuya
+> istek atılarak doğrulandı (`next start` + curl):
+>
+> - Oturumsuz POST /api/chat → **401 JSON** (`{"error":"Oturum bulunamadı."}`)
+> - Oturumsuz 12 ardışık istek → hepsi 401; hız sınırı bütçesi
+>   tüketilmiyor ve yapılandırma durumu sızmıyor
+> - Korumalı sayfa (/islemler) → hâlâ 307 /giris; /giris → 200
+> - `GEMINI_API_KEY` istemci paketinde geçmiyor (`.next/static` taraması)
+>
+> Aşağıdaki adımlar anahtar eklendikten sonra senin yapacağın kontroller.
 
 - [ ] **Step 1: Add your API key**
 
