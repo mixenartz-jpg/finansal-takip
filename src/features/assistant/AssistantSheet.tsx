@@ -70,6 +70,14 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const listEnd = useRef<HTMLDivElement>(null);
+  /*
+   * Gönderim kilidi. State yerine ref: `setThinking(true)`
+   * asenkron, ref senkron. Hızlı iki Enter'da ikinci çağrı
+   * state'in güncellenmesini beklemeden eleniyor.
+   */
+  const sendingRef = useRef(false);
+  /** Onaylanmakta olan eylemler — çift kayıt kilidi. */
+  const confirmingRef = useRef<Set<string>>(new Set());
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Yeni mesaj gelince en alta kaydır: kullanıcı cevabı görmek için
@@ -78,19 +86,45 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
     listEnd.current?.scrollIntoView({ block: "end" });
   }, [conversation.messages.length, thinking]);
 
-  // Ses metne çevrilince kutuya yaz. Otomatik GÖNDERİLMEZ:
-  // kullanıcı yanlış duyulan bir cümleyi düzeltebilmeli.
+  /*
+   * Ses metne çevrilince kutuya yaz. Otomatik GÖNDERİLMEZ:
+   * kullanıcı yanlış duyulan bir cümleyi düzeltebilmeli
+   * ("200" yerine "2000" duyulması tipik).
+   *
+   * ── BAĞIMLILIK NEDEN SADECE transcript ──
+   *
+   * `useSpeechRecognition` her render'da YENİ bir nesne döndürüyor
+   * (`return { state, transcript, ... }`). Bağımlılığa `speech`
+   * nesnesini koymak efekti her render'da yeniden koşturur; o da
+   * transkript dururken her render'da odağı kutuya çalıyordu.
+   * `reset` zaten `useCallback([])` ile sabit, bu yüzden ref'e
+   * gerek yok — ama bağımlılığa da girmemeli.
+   */
+  const resetSpeech = speech.reset;
+  const transcript = speech.transcript;
   useEffect(() => {
-    if (speech.transcript) {
-      setDraft((d) => (d ? `${d} ${speech.transcript}` : speech.transcript));
-      speech.reset();
-      inputRef.current?.focus();
-    }
-  }, [speech.transcript, speech]);
+    if (!transcript) return;
+    setDraft((d) => (d ? `${d} ${transcript}` : transcript));
+    resetSpeech();
+    inputRef.current?.focus();
+  }, [transcript, resetSpeech]);
 
   async function send(text: string) {
     const message = text.trim();
-    if (!message || thinking) return;
+    if (!message) return;
+
+    /*
+     * ── ÇİFT GÖNDERİM KORUMASI ──
+     *
+     * `thinking` state'i render başına yakalanıyor ve
+     * `setThinking(true)` asenkron. Hızlı iki Enter'da ikisi de
+     * aynı render'ın `thinking: false` değerini görüp geçerdi —
+     * iki istek, iki kota tüketimi, iki onay kartı.
+     *
+     * Ref senkron okunur/yazılır: ikinci çağrı anında elenir.
+     */
+    if (sendingRef.current) return;
+    sendingRef.current = true;
 
     setConversation((c) => addUserMessage(c, message));
     setDraft("");
@@ -119,6 +153,8 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
       const local = draftToIntent(parsed, localCtx);
       if (local) {
         setConversation((c) => addAssistantAction(c, local));
+        // Kilit burada bırakılıyor: Gemini'ye hiç gitmedik.
+        sendingRef.current = false;
         return;
       }
     } catch {
@@ -164,10 +200,24 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
       );
     } finally {
       setThinking(false);
+      sendingRef.current = false;
     }
   }
 
   function handleConfirm(messageId: string, intent: Intent) {
+    /*
+     * ── ÇİFT KAYIT KORUMASI ──
+     *
+     * `savingId` state'i asenkron güncellenir; yavaş ağda sabırsız
+     * iki dokunuş aynı render'ın `savingId: null` değerini görüp
+     * ikisi de geçerdi — aynı işlem İKİ KEZ kaydedilirdi.
+     *
+     * `conversation.resolveAction` zaten çözülmüş eylemi yok
+     * sayıyor, ama o koruma kayıt TAMAMLANDIKTAN sonra devreye
+     * giriyor; mutation'ın kendisi iki kez tetiklenmişti.
+     */
+    if (confirmingRef.current.has(messageId)) return;
+    confirmingRef.current.add(messageId);
     // Şimdilik yalnızca işlem ekleme uygulanıyor; diğer araçlar
     // Faz 5'te bağlanacak. Uygulanamayan niyet SESSİZCE geçmiyor,
     // kullanıcıya ne olduğu söyleniyor.
@@ -180,6 +230,7 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
           "Bunu henüz uygulayamıyorum. İlgili sayfadan elle yapabilirsin.",
         ),
       );
+      confirmingRef.current.delete(messageId);
       return;
     }
 
@@ -191,6 +242,7 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
 
     if (!resolved.ok) {
       setConversation((c) => resolveAction(c, messageId, "failed", resolved.error));
+      confirmingRef.current.delete(messageId);
       return;
     }
 
@@ -198,10 +250,12 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
     createTransaction.mutate(resolved.input, {
       onSuccess: () => {
         setSavingId(null);
+        confirmingRef.current.delete(messageId);
         setConversation((c) => resolveAction(c, messageId, "done"));
       },
       onError: (err) => {
         setSavingId(null);
+        confirmingRef.current.delete(messageId);
         setConversation((c) => resolveAction(c, messageId, "failed", err.message));
       },
     });

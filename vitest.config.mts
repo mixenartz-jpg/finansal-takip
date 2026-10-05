@@ -39,6 +39,10 @@ export default defineConfig({
         "src/features/assistant/gemini.ts",
         "src/features/assistant/prompt.ts",
         "src/features/assistant/ratelimit.ts",
+        "src/features/assistant/resolve.ts",
+        "src/features/assistant/to-input.ts",
+        "src/features/assistant/local-first.ts",
+        "src/features/assistant/conversation.ts",
       ],
       // Arayuz tanimlari ve veri sozlukleri: calistirilabilir dal yok,
       // kapsam yuzdesini sulandirirlar.

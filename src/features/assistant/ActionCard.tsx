@@ -132,6 +132,21 @@ export function ActionCard({ action, saving, onConfirm, onCancel }: ActionCardPr
     <div className="rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--surface)] p-3">
       <p className="text-sm font-medium text-[var(--ink)]">{title}</p>
 
+      {/*
+        ── GÖRÜNÜR SATIR YOKSA ──
+
+        Kimlikler gizleniyor (UUID kullanıcıya bilgi değil gürültü).
+        Ama `updateTransaction` gibi yalnızca `id` taşıyan bir
+        niyette hiçbir satır kalmıyordu: başlık + "Onayla" düğmesi,
+        arada NE DEĞİŞECEĞİ belirsiz. Hiçbir şey göstermeyen bir
+        onay ekranı, onay almıyor demektir.
+      */}
+      {rows.length === 0 && (
+        <p className="mt-2 text-[13px] text-[var(--warning)]">
+          Ne değişeceğini gösteremiyorum — bunu ilgili sayfadan elle yapman daha güvenli.
+        </p>
+      )}
+
       {rows.length > 0 && (
         <dl className="mt-2 flex flex-col gap-1">
           {rows.map((r) => (
@@ -157,6 +172,9 @@ export function ActionCard({ action, saving, onConfirm, onCancel }: ActionCardPr
             variant={intent.name.startsWith("delete") ? "danger" : "primary"}
             onClick={onConfirm}
             loading={saving}
+            // Gösterilecek hiçbir alan yoksa onay istenmez: kullanıcı
+            // ne onayladığını bilmeden düğmeye basmamalı.
+            disabled={rows.length === 0}
             full
           >
             {intent.needsConfirm ? "Onayla" : "Uygula"}
