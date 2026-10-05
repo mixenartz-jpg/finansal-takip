@@ -247,3 +247,57 @@ describe("parseIntent -- bilinmeyen argüman ELENİR", () => {
     expect(r.intent.args.kind).toBe("expense");
   });
 });
+
+describe("parseIntent -- ★ gün/ay aralığı", () => {
+  const rule = (extra: Record<string, unknown>) => ({
+    name: "createRecurringRule",
+    arguments: {
+      name: "Kira",
+      kind: "expense",
+      amountKurus: 1500000,
+      freq: "monthly",
+      accountName: "Nakit",
+      ...extra,
+    },
+  });
+
+  test("geçerli gün kabul edilir", () => {
+    expect(parseIntent(rule({ dayOf: 1 })).valid).toBe(true);
+    expect(parseIntent(rule({ dayOf: 31 })).valid).toBe(true);
+  });
+
+  /**
+   * ── NEDEN BURADA SINIRLANIYOR ──
+   *
+   * Şemada `day_of between 1 and 31`, `month_of between 1 and 12`
+   * kısıtları var (0007_recurring.sql). Bu modül "güvenlik sınırı"
+   * olduğunu iddia ediyor; aralık kontrolünü Faz 4'e bırakmak o
+   * iddiayı boşa çıkarır ve sınır iki yere dağılır.
+   *
+   * Model "ayın 45'i" gibi bir şey üretirse kullanıcı bunu ancak
+   * kaydetmeye çalışınca, ham Postgres kısıt hatası olarak görür.
+   */
+  test("aralık dışı gün reddedilir", () => {
+    for (const dayOf of [0, -3, 32, 45, 100]) {
+      expect(parseIntent(rule({ dayOf })).valid, `dayOf=${dayOf} kabul edildi`).toBe(false);
+    }
+  });
+
+  test("aralık dışı ay reddedilir", () => {
+    for (const monthOf of [0, -1, 13, 99]) {
+      expect(
+        parseIntent(rule({ dayOf: 1, freq: "yearly", monthOf })).valid,
+        `monthOf=${monthOf} kabul edildi`,
+      ).toBe(false);
+    }
+  });
+
+  test("geçerli ay kabul edilir", () => {
+    expect(parseIntent(rule({ dayOf: 1, freq: "yearly", monthOf: 1 })).valid).toBe(true);
+    expect(parseIntent(rule({ dayOf: 1, freq: "yearly", monthOf: 12 })).valid).toBe(true);
+  });
+
+  test("kesirli gün reddedilir", () => {
+    expect(parseIntent(rule({ dayOf: 15.5 })).valid).toBe(false);
+  });
+});

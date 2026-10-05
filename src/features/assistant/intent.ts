@@ -61,6 +61,25 @@ function isSignedAmount(v: unknown): boolean {
  */
 const SIGNED_AMOUNT_KEYS: readonly string[] = ["openingKurus"];
 
+/**
+ * Aralığı sınırlı tam sayı alanları.
+ *
+ * Değerler `supabase/migrations/0007_recurring.sql` kısıtlarından
+ * geliyor: `day_of between 1 and 31`, `month_of between 1 and 12`.
+ *
+ * ── NEDEN BURADA, FAZ 4'TE DEĞİL ──
+ *
+ * Bu modül "tek kapı" olduğunu iddia ediyor. Aralık kontrolünü
+ * mutation hook'una bırakmak o iddiayı boşa çıkarır ve sınırı iki
+ * yere dağıtır. Model "ayın 45'i" ürettiğinde kullanıcı bunu ham
+ * bir Postgres kısıt hatası olarak değil, anlaşılır bir cümle
+ * olarak görmeli.
+ */
+const INT_RANGES: Readonly<Record<string, { min: number; max: number; label: string }>> = {
+  dayOf: { min: 1, max: 31, label: "Gün 1 ile 31 arasında olmalı." },
+  monthOf: { min: 1, max: 12, label: "Ay 1 ile 12 arasında olmalı." },
+};
+
 function isNonEmptyString(v: unknown): boolean {
   return typeof v === "string" && v.trim().length > 0;
 }
@@ -71,6 +90,14 @@ function toolByName(name: string): ToolDefinition | undefined {
 
 /**
  * Tek bir argümanı şemasına göre doğrular.
+ *
+ * ── SIRA YÜKLEYİCİ ──
+ *
+ * Dallar alanın ADINA bakıyor ve sıra önemli: `*Kurus` kontrolü
+ * `enum`'dan önce gelmeli, yoksa tutar alanı yanlış dalda
+ * doğrulanır. Yeni bir araç alanı eklerken ad çarpışması olmadığını
+ * `tools.test.ts` içindeki "checkArg dalıyla çarpışmasın" testleri
+ * garanti ediyor — orayı kırmadan yeni ad ekleyemezsin.
  *
  * @returns Türkçe hata mesajı, ya da geçerliyse null.
  */
@@ -115,9 +142,14 @@ function checkArg(key: string, value: unknown, schema: Record<string, unknown>):
   }
 
   if (type === "integer") {
-    return typeof value === "number" && Number.isInteger(value)
-      ? null
-      : `${key} tam sayı olmalı.`;
+    if (typeof value !== "number" || !Number.isInteger(value)) {
+      return `${key} tam sayı olmalı.`;
+    }
+    const range = INT_RANGES[key];
+    if (range && (value < range.min || value > range.max)) {
+      return range.label;
+    }
+    return null;
   }
 
   if (type === "string") {

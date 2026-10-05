@@ -112,3 +112,57 @@ describe("TOOLS -- Interactions API biçimi", () => {
     }
   });
 });
+
+/**
+ * ── DAL SIRASI YÜKLEYİCİ ──
+ *
+ * `intent.ts` içindeki `checkArg`, alanı ADINA bakarak hangi
+ * doğrulamadan geçireceğine karar veriyor; sıra şöyle:
+ *
+ *   *Kurus → date/from/to/dueDate → month → enum → array → integer → string
+ *
+ * Bu konumsal if-zinciri bugün doğru çalışıyor, ama yeni bir araç
+ * alanı eklendiğinde sessizce yanlış dala düşebilir. Örnek: `enum`
+ * taşıyan ama adı `date` olan bir alan, enum kontrolüne HİÇ
+ * ulaşmadan tarih olarak doğrulanırdı — ve test yeşil kalırdı.
+ *
+ * Bu testler o çarpışmaları şema tarafında yasaklıyor.
+ */
+describe("araç alanları -- ★ checkArg dalıyla çarpışmasın", () => {
+  const allProps = TOOLS.flatMap((t) =>
+    Object.entries(t.parameters.properties).map(
+      ([key, schema]) => ({ tool: t.name, key, schema: schema as Record<string, unknown> }),
+    ),
+  );
+
+  const DATE_KEYS = ["date", "from", "to", "dueDate"];
+
+  test("adı *Kurus ile biten her alan gerçekten tutar (integer)", () => {
+    for (const p of allProps.filter((p) => p.key.endsWith("Kurus"))) {
+      expect(p.schema.type, `${p.tool}.${p.key} tutar değil`).toBe("integer");
+      expect(p.schema.enum, `${p.tool}.${p.key} enum taşıyor`).toBeUndefined();
+    }
+  });
+
+  test("tarih adlı alanlar string ve enum taşımaz", () => {
+    for (const p of allProps.filter((p) => DATE_KEYS.includes(p.key))) {
+      expect(p.schema.type, `${p.tool}.${p.key}`).toBe("string");
+      expect(p.schema.enum, `${p.tool}.${p.key} enum taşıyor`).toBeUndefined();
+    }
+  });
+
+  test("enum taşıyan alan tarih/ay/tutar adı KULLANMAZ", () => {
+    for (const p of allProps.filter((p) => Array.isArray(p.schema.enum))) {
+      expect(DATE_KEYS, `${p.tool}.${p.key} enum ama tarih adı`).not.toContain(p.key);
+      expect(p.key, `${p.tool}.${p.key} enum ama ay adı`).not.toBe("month");
+      expect(p.key.endsWith("Kurus"), `${p.tool}.${p.key} enum ama tutar adı`).toBe(false);
+    }
+  });
+
+  test("dizi alanları tarih/tutar adı KULLANMAZ", () => {
+    for (const p of allProps.filter((p) => p.schema.type === "array")) {
+      expect(DATE_KEYS, `${p.tool}.${p.key}`).not.toContain(p.key);
+      expect(p.key.endsWith("Kurus"), `${p.tool}.${p.key}`).toBe(false);
+    }
+  });
+});

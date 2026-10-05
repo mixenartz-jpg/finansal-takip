@@ -27,8 +27,27 @@ export interface RunAssistantOptions {
   fetchFn?: typeof fetch;
 }
 
+/**
+ * "Model cevap verdi ama içi boştu" durumu.
+ *
+ * ── NEDEN AYRI BİR DEĞER ──
+ *
+ * Bu durum da `callGemini`'nin "cevap hiç gelmedi" değeri (0) ile
+ * aynı kutuya konuyordu ve kullanıcı "Yapay zekaya ulaşamadım"
+ * mesajını görüyordu. Oysa yapay zekaya BEŞ KEZ ulaşıldı; sorun
+ * modelin kullanışlı bir şey üretmemesi.
+ *
+ * Yanlış mesaj, hatayı arayan kişiyi doğrudan ağ/bağlantı
+ * teorisine yönlendirir — gerçek sebep ise istem veya ayrıştırma
+ * tarafındadır. İki başarısızlık biçimi ayrı tutuluyor.
+ */
+const EMPTY_RESPONSE = -1;
+
 /** HTTP durumunu kullanıcıya gösterilecek Türkçe mesaja çevirir. */
 function errorFor(status: number): string {
+  if (status === EMPTY_RESPONSE) {
+    return "Bunu anlayamadım, başka şekilde anlatır mısın? İşlemi elle de ekleyebilirsin.";
+  }
   if (status === 429) {
     return "Yapay zeka şu an çok yoğun, biraz sonra tekrar dener misin? İşlemi elle de ekleyebilirsin.";
   }
@@ -64,8 +83,9 @@ export async function runAssistant(opts: RunAssistantOptions): Promise<Assistant
 
     if (res.text) return { kind: "message", text: res.text, model };
 
-    // Ne araç ne metin: model boş döndü. Sıradakini dene.
-    lastStatus = 0;
+    // Ne araç ne metin: model boş döndü. Sıradakini dene, ama
+    // sebebi "ulaşamadım" ile karıştırma.
+    lastStatus = EMPTY_RESPONSE;
   }
 
   return { kind: "error", error: errorFor(lastStatus) };

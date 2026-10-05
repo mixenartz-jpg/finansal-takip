@@ -181,3 +181,31 @@ describe("runAssistant -- ★ bozuk niyet reddedilir", () => {
     expect(f).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("runAssistant -- ★ model boş döndü", () => {
+  /**
+   * ── "ULAŞAMADIM" DEMEK YANLIŞTI ──
+   *
+   * Model başarıyla cevap verip ne araç çağrısı ne metin
+   * döndürebilir (tanımadığımız bir adım türü, boş içerik).
+   * Bu durumda zincir beş modeli de deniyor ve sonunda
+   * "Yapay zekaya ulaşamadım" diyordu.
+   *
+   * Oysa yapay zekaya BEŞ KEZ ulaşıldı; sorun ağ değil, modelin
+   * kullanışlı bir şey üretmemesi. Yanlış mesaj hatayı ararken
+   * insanı doğrudan ağ/bağlantı teorisine yönlendirir.
+   */
+  test("hepsi boş dönerse mesaj ağ hatası İDDİA ETMEZ", async () => {
+    const f = sequence(json({ id: "v1", status: "completed", steps: [] }));
+    const r = await runAssistant({ apiKey: "k", message: "x", ctx, fetchFn: f });
+
+    expect(r.kind).toBe("error");
+    if (r.kind !== "error") return;
+    // Beş model de denendi.
+    expect(f).toHaveBeenCalledTimes(MODEL_CHAIN.length);
+    // Ulaşıldı: "ulaşamadım" demek yanlış olur.
+    expect(r.error).not.toMatch(/ulaşamadım/i);
+    // Kullanıcıya yine de bir çıkış yolu sunulmalı.
+    expect(r.error).toMatch(/elle|tekrar/i);
+  });
+});
