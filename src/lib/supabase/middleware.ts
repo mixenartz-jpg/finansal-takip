@@ -31,6 +31,22 @@ function isLoginPath(pathname: string): boolean {
 }
 
 /**
+ * API uç noktası mı? Aynı segment sınırı kuralı.
+ *
+ * ── NEDEN AYRI ──
+ *
+ * Oturumsuz bir SAYFA isteğinde `/giris`'e yönlendirmek doğru.
+ * Oturumsuz bir API isteğinde DEĞİL: `fetch` yönlendirmeyi sessizce
+ * izler (varsayılan "follow"), 200 + HTML alır ve `res.json()`
+ * "Unexpected token '<'" ile patlar. Çağıran taraf 401 görmediği
+ * için "oturumun bitti" durumunu ayırt edemez; kullanıcıya
+ * "asistan bozuk" gibi görünür.
+ */
+function isApiPath(pathname: string): boolean {
+  return pathname === "/api" || pathname.startsWith("/api/");
+}
+
+/**
  * Oturumu tazeler ve korumalı yolları kapıda tutar.
  *
  * İKİ KURAL — bunlara uyulmazsa kullanıcı rastgele oturumdan düşer:
@@ -69,6 +85,10 @@ export async function updateSession(request: NextRequest) {
   const isPublic = isPublicPath(pathname);
 
   if (!user && !isPublic) {
+    // API yolunda yönlendirme değil JSON 401 — bkz. `isApiPath`.
+    if (isApiPath(pathname)) {
+      return NextResponse.json({ error: "Oturum bulunamadı." }, { status: 401 });
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/giris";
     return NextResponse.redirect(url);
