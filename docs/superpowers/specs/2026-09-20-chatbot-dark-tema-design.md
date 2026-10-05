@@ -252,3 +252,73 @@ Faz 1'den bağımsız; sırası değiştirilebilir.
 - Geri alma (undo) altyapısı — onay kartı bu ihtiyacı karşılıyor
 - Asistanın çok kullanıcılı veya paylaşımlı kullanımı
 - Sesli **yanıt** (asistan konuşmaz, yalnızca dinler ve yazar)
+
+---
+
+## Uygulama durumu (2026-10-05)
+
+Faz 1–5 tamamlandı. Spec'ten SAPAN kararlar ve sebepleri:
+
+### Gemini API: `generateContent` değil `interactions`
+
+Spec yazıldığında eski API varsayılıyordu. `context7` ile
+doğrulandığında (şartı spec'in kendisi koymuştu) API'nin kökten
+değiştiği görüldü:
+
+| | Spec'in varsaydığı | Gerçek |
+|---|---|---|
+| Uç nokta | `models/<model>:generateContent` | `v1beta/interactions` |
+| Araçlar | `tools:[{functionDeclarations:[…]}]` | `tools:[{type:"function",…}]` |
+| Cevap | `candidates[].content.parts[]` | `steps[]` |
+| Argümanlar | JSON string | nesne |
+
+Durumsuz modda (`store:false`) model adımları BİREBİR geri
+gönderilmek zorunda: `thought` adımları `signature` taşıyor ve
+o imzalar yeniden üretilemez.
+
+### Kural motoru sohbette de önce çalışıyor
+
+Spec kural motorunu yalnızca dikte yolunda öngörüyordu. Dikte
+paneli sohbete dönüşünce kural motoru erişilemez kalacaktı —
+ücretsiz, anlık ve çevrimdışı bir yol kaybedilecekti.
+
+Karar: sohbette de önce kural motoru. "200 tl yemek aldım"
+cümlesinde Gemini'ye hiç gidilmiyor. E2E testi bunu ağ isteği
+sayarak doğruluyor.
+
+### Okuma verisi istemciden gidiyor
+
+Spec "Gemini'ye özet gönderilir" diyordu ama özeti kimin kuracağı
+belirsizdi. Sunucu kullanıcının verisini GÖREMİYOR: RLS kullanıcı
+oturumuna bağlı ve bu uç nokta `service_role` kullanmıyor.
+
+Karar: istemci önbellekten özet kuruyor, sunucu onu normalleştirip
+boyutunu kırpıyor. Alternatif (`service_role` ile sunucuda çekmek)
+mimarinin tam reddettiği şey.
+
+### Asistan işlemleri `source: 'voice'`
+
+`source` sütununun check kısıtı yalnızca
+manual/voice/recurring/import kabul ediyor. Ayrı bir `'assistant'`
+türü migration gerektirirdi; kullanıcı kararı: migration yok.
+
+**Sonuç:** raporda dikte ile asistan ayrışmıyor. İleride ayrım
+gerekirse `0011` ile `'assistant'` eklenir.
+
+### Güncelleme/silme araçları BAĞLANMADI
+
+`updateTransaction`, `deleteTransaction`, `updateAccount`,
+`updateCategory`, `updateDebt`, `updateRecurringRule`,
+`addDebtPayment` tanımlı ama bağlı değil.
+
+Sebep: hangi KAYIT olduğunu bilmek gerekiyor. Model yalnızca ad
+görüyor, kimlik görmüyor. Kimliği bulmak için `findTransactions`
+turunun sonucundan kimlik taşımak gerekir — ama kimlikleri modele
+göndermek gizlilik kararını geri alır.
+
+Uydurma kimlikle devam etmek YANLIŞ KAYDI silmek olurdu. Bu
+yüzden onaylandığında sessizce geçmiyor, kullanıcıya "hangi kaydı
+kastettiğini güvenle bulamıyorum" deniyor.
+
+**Sonraki faz için:** onay kartında kayıt SEÇİCİSİ (kullanıcı
+listeden seçer, kimlik modele hiç gitmez) doğru yol görünüyor.
