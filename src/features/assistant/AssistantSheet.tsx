@@ -6,10 +6,22 @@ import { supportMessage } from "@/features/dictation/support";
 import { useCategories } from "@/features/categories/queries";
 import { useAccounts } from "@/features/accounts/queries";
 import { useCreateTransaction } from "@/features/transactions/queries";
+import { useCreateAccount, useArchiveAccount } from "@/features/accounts/queries";
+import { useCreateCategory } from "@/features/categories/queries";
+import { useUpsertBudget, useDeleteBudget } from "@/features/budgets/queries";
+import { useCreateDebt } from "@/features/debts/queries";
+import { useCreateRule, useDeleteRule } from "@/features/recurring/queries";
 import { todayStr } from "@/lib/date/date";
 import { Button } from "@/components/ui";
 import { ActionCard } from "./ActionCard";
 import { intentToTransactionInput } from "./to-input";
+import {
+  intentToAccountInput,
+  intentToBudgetInput,
+  intentToCategoryInput,
+  intentToDebtInput,
+  intentToRecurringInput,
+} from "./to-write";
 import { draftToIntent } from "./local-first";
 import { createParser } from "@/features/parser";
 import {
@@ -63,6 +75,14 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
   const categories = useCategories();
   const accounts = useAccounts();
   const createTransaction = useCreateTransaction();
+  const createAccount = useCreateAccount();
+  const archiveAccount = useArchiveAccount();
+  const createCategory = useCreateCategory();
+  const upsertBudget = useUpsertBudget();
+  const deleteBudget = useDeleteBudget();
+  const createDebt = useCreateDebt();
+  const createRule = useCreateRule();
+  const deleteRule = useDeleteRule();
 
   const [conversation, setConversation] = useState<Conversation>(emptyConversation);
   const [draft, setDraft] = useState("");
@@ -218,47 +238,100 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
      */
     if (confirmingRef.current.has(messageId)) return;
     confirmingRef.current.add(messageId);
-    // Şimdilik yalnızca işlem ekleme uygulanıyor; diğer araçlar
-    // Faz 5'te bağlanacak. Uygulanamayan niyet SESSİZCE geçmiyor,
-    // kullanıcıya ne olduğu söyleniyor.
-    if (intent.name !== "createTransaction") {
-      setConversation((c) =>
-        resolveAction(
-          c,
-          messageId,
-          "failed",
-          "Bunu henüz uygulayamıyorum. İlgili sayfadan elle yapabilirsin.",
-        ),
-      );
+
+    const fail = (error: string) => {
+      setSavingId(null);
       confirmingRef.current.delete(messageId);
-      return;
-    }
+      setConversation((c) => resolveAction(c, messageId, "failed", error));
+    };
 
-    const resolved = intentToTransactionInput(intent.args, {
-      categories: categories.data ?? [],
-      accounts: accounts.data ?? [],
-      defaultAccountId: accounts.data?.[0]?.id ?? null,
-    });
-
-    if (!resolved.ok) {
-      setConversation((c) => resolveAction(c, messageId, "failed", resolved.error));
-      confirmingRef.current.delete(messageId);
-      return;
-    }
-
-    setSavingId(messageId);
-    createTransaction.mutate(resolved.input, {
+    /** Her mutation aynı sonuç kancalarını paylaşır. */
+    const handlers = {
       onSuccess: () => {
         setSavingId(null);
         confirmingRef.current.delete(messageId);
         setConversation((c) => resolveAction(c, messageId, "done"));
       },
-      onError: (err) => {
-        setSavingId(null);
-        confirmingRef.current.delete(messageId);
-        setConversation((c) => resolveAction(c, messageId, "failed", err.message));
-      },
-    });
+      onError: (err: Error) => fail(err.message),
+    };
+
+    const cats = categories.data ?? [];
+    const accs = accounts.data ?? [];
+    const today = todayStr();
+    const args = intent.args;
+
+    setSavingId(messageId);
+
+    switch (intent.name) {
+      case "createTransaction": {
+        const r = intentToTransactionInput(args, {
+          categories: cats,
+          accounts: accs,
+          defaultAccountId: accs[0]?.id ?? null,
+        });
+        if (!r.ok) return fail(r.error);
+        return createTransaction.mutate(r.input, handlers);
+      }
+
+      case "createAccount": {
+        const r = intentToAccountInput(args);
+        if (!r.ok) return fail(r.error);
+        return createAccount.mutate(r.input, handlers);
+      }
+
+      case "archiveAccount":
+        return archiveAccount.mutate(String(args.id), handlers);
+
+      case "createCategory": {
+        const r = intentToCategoryInput(args);
+        if (!r.ok) return fail(r.error);
+        return createCategory.mutate(r.input, handlers);
+      }
+
+      case "setBudget": {
+        const r = intentToBudgetInput(args, cats, today);
+        if (!r.ok) return fail(r.error);
+        return upsertBudget.mutate(r.input, handlers);
+      }
+
+      case "deleteBudget":
+        return deleteBudget.mutate(String(args.id), handlers);
+
+      case "createDebt": {
+        const r = intentToDebtInput(args, today);
+        if (!r.ok) return fail(r.error);
+        return createDebt.mutate(r.input, handlers);
+      }
+
+      case "createRecurringRule": {
+        const r = intentToRecurringInput(args, { categories: cats, accounts: accs }, today);
+        if (!r.ok) return fail(r.error);
+        return createRule.mutate(r.input, handlers);
+      }
+
+      case "deleteRecurringRule":
+        return deleteRule.mutate(String(args.id), handlers);
+
+      /*
+       * ── BAĞLANMAYAN ARAÇLAR ──
+       *
+       * Güncelleme ve silme araçları (updateTransaction,
+       * deleteTransaction, updateAccount, updateCategory,
+       * updateDebt, updateRecurringRule, addDebtPayment) HANGİ
+       * KAYIT olduğunu bilmeyi gerektiriyor. Model yalnızca ad
+       * görüyor, kimlik görmüyor; kimliği bulmak için önce
+       * `findTransactions` turunun çalışması gerek — o da ikinci
+       * tur (`function_result`) demek.
+       *
+       * Uydurma bir kimlikle devam etmek YANLIŞ KAYDI silmek
+       * olurdu. Bu yüzden sessizce geçmiyor, kullanıcıya ne
+       * yapacağı söyleniyor.
+       */
+      default:
+        return fail(
+          "Bunu henüz uygulayamıyorum — hangi kaydı kastettiğini güvenle bulamıyorum. İlgili sayfadan elle yapabilirsin.",
+        );
+    }
   }
 
   const listening = speech.state === "listening";

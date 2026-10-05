@@ -181,3 +181,77 @@ test.describe("asistan -- desteklenmeyen tarayıcı", () => {
     await expect(page.getByLabel("Asistana yaz")).toBeVisible();
   });
 });
+
+test.describe("asistan -- yazma araçları", () => {
+  /**
+   * ── İŞLEM DIŞI ARAÇLAR DA ÇALIŞIR ──
+   *
+   * Faz 4'te yalnızca `createTransaction` bağlıydı; diğer her
+   * niyet "henüz uygulayamıyorum" diyordu. Bu test kategori
+   * eklemenin gerçekten kaydedildiğini doğruluyor — onay kartı
+   * göründü ve "Uygulandı" dedi.
+   */
+  test("★ kategori ekleme niyeti uygulanır", async ({ page }) => {
+    const unique = `TestKat${Date.now()}`;
+
+    await page.route("**/api/chat", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          intent: {
+            name: "createCategory",
+            args: { name: unique, kind: "expense", keywords: ["testkelime"] },
+            needsConfirm: true,
+          },
+        }),
+      }),
+    );
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Asistanı aç" }).click();
+
+    // Kural motorunun çözemeyeceği bir cümle: /api/chat'e gider.
+    await page.getByLabel("Asistana yaz").fill("yeni bir kategori oluştur");
+    await page.getByRole("button", { name: "Gönder" }).click();
+
+    // Onay kartı alanları göstermeli — boş onay kartı olmaz.
+    await expect(page.getByText(unique)).toBeVisible();
+
+    await page.getByRole("button", { name: "Onayla" }).click();
+    await expect(page.getByText("✓ Uygulandı")).toBeVisible({ timeout: 15_000 });
+
+    // Gerçekten kaydedildi mi: kategoriler sayfasında görünmeli.
+    await page.goto("/kategoriler");
+    await expect(page.getByText(unique)).toBeVisible();
+  });
+
+  /**
+   * Bağlanmayan araçlar (güncelleme/silme) SESSİZCE geçmemeli:
+   * hangi kaydın kastedildiği güvenle bulunamıyor ve uydurma bir
+   * kimlikle devam etmek yanlış kaydı silmek olurdu.
+   */
+  test("★ bağlanmayan araç anlaşılır hata verir", async ({ page }) => {
+    await page.route("**/api/chat", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          intent: {
+            name: "deleteTransaction",
+            args: { ids: ["00000000-0000-0000-0000-000000000001"] },
+            needsConfirm: true,
+          },
+        }),
+      }),
+    );
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Asistanı aç" }).click();
+    await page.getByLabel("Asistana yaz").fill("dünkü market işlemini sil");
+    await page.getByRole("button", { name: "Gönder" }).click();
+
+    await page.getByRole("button", { name: "Onayla" }).click();
+    await expect(page.getByText(/henüz uygulayamıyorum/i)).toBeVisible();
+  });
+});

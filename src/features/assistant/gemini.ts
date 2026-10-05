@@ -32,8 +32,30 @@ export interface GeminiFunctionCall {
 }
 
 export type GeminiCallResult =
-  | { ok: true; call: GeminiFunctionCall | null; text: string | null }
+  | {
+      ok: true;
+      call: GeminiFunctionCall | null;
+      text: string | null;
+      /**
+       * Modelin ürettiği adımlar, DEĞİŞTİRİLMEDEN.
+       *
+       * İkinci tur (araç sonucunu geri gönderme) bunları olduğu
+       * gibi geri istiyor: `thought` adımları `signature` taşıyor
+       * ve o imzalar yeniden üretilemez.
+       */
+      steps: readonly unknown[];
+      /** `function_call` adımının kimliği — sonuç buna bağlanır. */
+      callId: string | null;
+    }
   | { ok: false; status: number };
+
+/** İkinci turda geri gönderilen araç sonucu. */
+export interface GeminiFunctionResult {
+  name: string;
+  callId: string;
+  /** Sonuç JSON'u — metin olarak. */
+  text: string;
+}
 
 export interface CallGeminiOptions {
   apiKey: string;
@@ -42,24 +64,51 @@ export interface CallGeminiOptions {
   ctx: AssistantContext;
   /** Enjekte edilir: testler gerçek ağa çıkmaz. */
   fetchFn?: typeof fetch;
+  /**
+   * İlk turda dönen model adımları — ikinci turda BİREBİR geri
+   * gönderilir. Durumsuz modda (store:false) Gemini 3.x bunu
+   * zorunlu kılıyor: `thought` adımlarının imzaları olmadan
+   * konuşma sürdürülemez.
+   */
+  priorSteps?: readonly unknown[];
+  /** Çalıştırılan aracın sonucu. `priorSteps` ile birlikte verilir. */
+  functionResult?: GeminiFunctionResult;
 }
 
 interface InteractionStep {
   type?: string;
+  id?: string;
   name?: string;
   arguments?: unknown;
   content?: { type?: string; text?: string }[];
 }
 
 export async function callGemini(opts: CallGeminiOptions): Promise<GeminiCallResult> {
-  const { apiKey, model, message, ctx, fetchFn = fetch } = opts;
+  const { apiKey, model, message, ctx, fetchFn = fetch, priorSteps, functionResult } = opts;
 
   const body = {
     model,
     // Durumsuz: sunucuda oturum tutmuyoruz, her istek kendi başına.
     store: false,
     system_instruction: `${SYSTEM_INSTRUCTION}\n\n${buildContextBlock(ctx)}`,
-    input: [{ type: "user_input", content: message }],
+    /*
+     * Durumsuz mod sırası: kullanıcı girdisi → model adımları →
+     * araç sonucu. Adımlar atlanırsa ikinci tur reddedilir.
+     */
+    input: [
+      { type: "user_input", content: message },
+      ...(priorSteps ?? []),
+      ...(functionResult
+        ? [
+            {
+              type: "function_result",
+              name: functionResult.name,
+              call_id: functionResult.callId,
+              result: [{ type: "text", text: functionResult.text }],
+            },
+          ]
+        : []),
+    ],
     tools: TOOLS,
   };
 
@@ -98,7 +147,13 @@ export async function callGemini(opts: CallGeminiOptions): Promise<GeminiCallRes
       typeof fc.arguments === "object" && fc.arguments !== null && !Array.isArray(fc.arguments)
         ? (fc.arguments as Record<string, unknown>)
         : {};
-    return { ok: true, call: { name: fc.name, arguments: args }, text: null };
+    return {
+      ok: true,
+      call: { name: fc.name, arguments: args },
+      text: null,
+      steps,
+      callId: typeof fc.id === "string" ? fc.id : null,
+    };
   }
 
   // Araç çağrısı yok: model soru soruyor ya da bilgi veriyor.
@@ -109,5 +164,5 @@ export async function callGemini(opts: CallGeminiOptions): Promise<GeminiCallRes
       .filter((t): t is string => typeof t === "string" && t.length > 0)
       .join("\n") || null;
 
-  return { ok: true, call: null, text };
+  return { ok: true, call: null, text, steps, callId: null };
 }

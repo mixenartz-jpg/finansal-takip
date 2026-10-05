@@ -221,3 +221,117 @@ describe("callGemini -- cevap ayrıştırma", () => {
     expect(r.ok).toBe(false);
   });
 });
+
+describe("callGemini -- ★ ikinci tur (function_result)", () => {
+  /**
+   * ── MODEL ADIMLARI BİREBİR GERİ GÖNDERİLİR ──
+   *
+   * Durumsuz modda (store:false) Gemini 3.x, `thought` adımlarının
+   * taşıdığı `signature` değerlerini SORUYOR. Adımlar atılırsa
+   * ikinci tur reddedilir ya da model bağlamı kaybeder.
+   *
+   * Doküman (2026-10-05, context7): "you must preserve and resend
+   * all model-generated steps (such as thought and function_call
+   * steps) exactly as received, as they contain signatures
+   * required to continue the conversation."
+   */
+  const firstTurnSteps = [
+    { type: "thought", summary: [{ type: "text", text: "bakiyeye bakmalıyım" }], signature: "sig-abc" },
+    { type: "function_call", id: "fc_1", name: "getBalances", arguments: {} },
+  ];
+
+  test("geçmiş adımlar ve function_result gövdeye girer", async () => {
+    const f = fakeFetch({
+      id: "v2",
+      status: "completed",
+      steps: [{ type: "model_output", content: [{ type: "text", text: "Kasada 500 TL var." }] }],
+    });
+
+    const r = await callGemini({
+      apiKey: "k",
+      model: "gemini-3.8-flash",
+      message: "kasada ne kadar var",
+      ctx,
+      fetchFn: f,
+      priorSteps: firstTurnSteps,
+      functionResult: { name: "getBalances", callId: "fc_1", text: '{"nakit":50000}' },
+    });
+
+    const body = JSON.parse(String(f.mock.calls[0][1]!.body));
+
+    // Kullanıcı girdisi + model adımları + sonuç, BU SIRADA.
+    expect(body.input[0].type).toBe("user_input");
+    expect(body.input[1]).toEqual(firstTurnSteps[0]);
+    expect(body.input[2]).toEqual(firstTurnSteps[1]);
+    expect(body.input[3]).toEqual({
+      type: "function_result",
+      name: "getBalances",
+      call_id: "fc_1",
+      result: [{ type: "text", text: '{"nakit":50000}' }],
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.text).toBe("Kasada 500 TL var.");
+  });
+
+  /** `signature` alanı AYNEN korunmalı — yeniden üretilemez. */
+  test("★ thought imzası değiştirilmeden taşınır", async () => {
+    const f = fakeFetch({ id: "v2", status: "completed", steps: [] });
+    await callGemini({
+      apiKey: "k",
+      model: "gemini-3.8-flash",
+      message: "x",
+      ctx,
+      fetchFn: f,
+      priorSteps: firstTurnSteps,
+      functionResult: { name: "getBalances", callId: "fc_1", text: "{}" },
+    });
+
+    const raw = String(f.mock.calls[0][1]!.body);
+    expect(raw).toContain("sig-abc");
+  });
+
+  /** İlk turda bu alanlar yok: gövde eskisi gibi kalmalı. */
+  test("priorSteps yoksa gövde tek user_input taşır", async () => {
+    const f = fakeFetch({ id: "v1", status: "completed", steps: [] });
+    await callGemini({ apiKey: "k", model: "gemini-3.8-flash", message: "x", ctx, fetchFn: f });
+
+    const body = JSON.parse(String(f.mock.calls[0][1]!.body));
+    expect(body.input).toHaveLength(1);
+    expect(body.input[0].type).toBe("user_input");
+  });
+
+  /** `model_output` adımından da metin okunabilmeli. */
+  test("model_output metni okunur", async () => {
+    const r = await callGemini({
+      apiKey: "k",
+      model: "gemini-3.8-flash",
+      message: "x",
+      ctx,
+      fetchFn: fakeFetch({
+        id: "v2",
+        status: "completed",
+        steps: [{ type: "model_output", content: [{ type: "text", text: "Bu ay 1.200 TL." }] }],
+      }),
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.text).toBe("Bu ay 1.200 TL.");
+  });
+
+  /** İlk turda dönen adımlar çağırana verilmeli: ikinci tur onları ister. */
+  test("★ cevaptaki adımlar çağırana DÖNER", async () => {
+    const r = await callGemini({
+      apiKey: "k",
+      model: "gemini-3.8-flash",
+      message: "x",
+      ctx,
+      fetchFn: fakeFetch({ id: "v1", status: "requires_action", steps: firstTurnSteps }),
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.steps).toEqual(firstTurnSteps);
+    expect(r.callId).toBe("fc_1");
+  });
+});
