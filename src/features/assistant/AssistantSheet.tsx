@@ -83,7 +83,6 @@ interface ChatResponse {
 const parser = createParser();
 
 export function AssistantSheet({ onClose }: { onClose: () => void }) {
-  const speech = useSpeechRecognition();
   const categories = useCategories();
   const accounts = useAccounts();
   const createTransaction = useCreateTransaction();
@@ -126,34 +125,27 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
   const confirmingRef = useRef<Set<string>>(new Set());
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Yeni mesaj gelince en alta kaydır: kullanıcı cevabı görmek için
-  // elle kaydırmak zorunda kalmasın.
-  useEffect(() => {
-    listEnd.current?.scrollIntoView({ block: "end" });
-  }, [conversation.messages.length, thinking]);
-
   /*
    * Ses metne çevrilince kutuya yaz. Otomatik GÖNDERİLMEZ:
    * kullanıcı yanlış duyulan bir cümleyi düzeltebilmeli
    * ("200" yerine "2000" duyulması tipik).
    *
-   * ── BAĞIMLILIK NEDEN SADECE transcript ──
-   *
-   * `useSpeechRecognition` her render'da YENİ bir nesne döndürüyor
-   * (`return { state, transcript, ... }`). Bağımlılığa `speech`
-   * nesnesini koymak efekti her render'da yeniden koşturur; o da
-   * transkript dururken her render'da odağı kutuya çalıyordu.
-   * `reset` zaten `useCallback([])` ile sabit, bu yüzden ref'e
-   * gerek yok — ama bağımlılığa da girmemeli.
+   * Metin tanıma olayının kendisinde (`onFinal`) yazılıyor, bir
+   * `transcript` efektinde değil: efekt yolu fazladan render ve
+   * her render'da odağı kutuya çalma riski taşıyordu.
    */
-  const resetSpeech = speech.reset;
-  const transcript = speech.transcript;
+  const speech = useSpeechRecognition({
+    onFinal: (text) => {
+      setDraft((d) => (d ? `${d} ${text}` : text));
+      inputRef.current?.focus();
+    },
+  });
+
+  // Yeni mesaj gelince en alta kaydır: kullanıcı cevabı görmek için
+  // elle kaydırmak zorunda kalmasın.
   useEffect(() => {
-    if (!transcript) return;
-    setDraft((d) => (d ? `${d} ${transcript}` : transcript));
-    resetSpeech();
-    inputRef.current?.focus();
-  }, [transcript, resetSpeech]);
+    listEnd.current?.scrollIntoView({ block: "end" });
+  }, [conversation.messages.length, thinking]);
 
   /**
    * Okuma araçlarının üzerinde çalışacağı özet.

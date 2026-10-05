@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   detectSupport,
   getRecognitionConstructor,
@@ -9,6 +9,17 @@ import {
 } from "./support";
 
 export type ListeningState = "idle" | "listening" | "error";
+
+export interface SpeechRecognitionOptions {
+  lang?: string;
+  /**
+   * Kesinleşmiş metin geldiğinde çağrılır. Verilirse metin
+   * `transcript`'e BİRİKTİRİLMEZ — çağıran kendi state'ine yazar.
+   * Bu, "transcript değişince efektte state güncelle" zincirini
+   * (çift render) ortadan kaldırır.
+   */
+  onFinal?: (text: string) => void;
+}
 
 export interface SpeechRecognitionHook {
   state: ListeningState;
@@ -23,15 +34,25 @@ export interface SpeechRecognitionHook {
   reset: () => void;
 }
 
+const SERVER_SUPPORT: DictationSupport = { supported: false, reason: "no-window" };
+let clientSupport: DictationSupport | null = null;
+
+// Destek oturum boyunca değişmez: abone olunacak bir şey yok.
+const subscribeNoop = () => () => {};
+// Anlık görüntü KARARLI olmalı — her çağrıda yeni nesne dönerse
+// useSyncExternalStore sonsuz render döngüsüne girer.
+const getClientSupport = () => (clientSupport ??= detectSupport());
+const getServerSupport = () => SERVER_SUPPORT;
+
 /**
  * Web Speech API sarmalayıcısı.
  *
  * ── SUNUCU/İSTEMCİ AYRIMI ──
  *
- * Destek tespiti `useEffect` içinde yapılır, ilk render'da DEĞİL.
- * Sunucuda `window` yoktur; ilk render'da "desteklenmiyor" deyip
- * istemcide "destekleniyor" demek hidrasyon uyuşmazlığı üretir ve
- * React ekranı baştan çizer.
+ * Destek tespiti `useSyncExternalStore` ile yapılır: sunucuda ve
+ * hidrasyon sırasında `getServerSnapshot` ("no-window") kullanılır,
+ * hidrasyondan sonra istemci değeri okunur. Böylece hidrasyon
+ * uyuşmazlığı olmaz ve efektte `setState` gerekmez.
  *
  * ── NEDEN continuous = false ──
  *
@@ -39,22 +60,24 @@ export interface SpeechRecognitionHook {
  * açık olsaydı mikrofon konuşma bittikten sonra da açık kalır, arka
  * plan sesi transkripte karışırdı.
  */
-export function useSpeechRecognition(lang = "tr-TR"): SpeechRecognitionHook {
+export function useSpeechRecognition(
+  options: SpeechRecognitionOptions = {},
+): SpeechRecognitionHook {
+  const { lang = "tr-TR", onFinal } = options;
   const [state, setState] = useState<ListeningState>("idle");
   const [transcript, setTranscript] = useState("");
   const [interim, setInterim] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [support, setSupport] = useState<DictationSupport>({
-    supported: false,
-    reason: "no-window",
-  });
+  const support = useSyncExternalStore(subscribeNoop, getClientSupport, getServerSupport);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-  // Destek tespiti yalnızca istemcide, montajdan sonra.
+  // En güncel geri çağrı. Ref render sırasında değil efektte
+  // yazılır; `start` bağımlılığa girmeden hep yenisini çağırır.
+  const onFinalRef = useRef(onFinal);
   useEffect(() => {
-    setSupport(detectSupport());
-  }, []);
+    onFinalRef.current = onFinal;
+  });
 
   // Bileşen kaldırılırken mikrofonu kapat: açık kalan tanıma
   // oturumu tarayıcıda kayıt göstergesini yakık bırakır.
@@ -98,7 +121,10 @@ export function useSpeechRecognition(lang = "tr-TR"): SpeechRecognitionHook {
         else interimText += text;
       }
 
-      if (finalText) {
+      if (finalText && onFinalRef.current) {
+        onFinalRef.current(finalText.trim());
+        setInterim("");
+      } else if (finalText) {
         setTranscript((prev) => (prev ? `${prev} ${finalText}` : finalText).trim());
         setInterim("");
       } else {

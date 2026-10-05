@@ -10,7 +10,6 @@ import {
   toDebt,
   toDebtPayment,
   toDebtRowInput,
-  type Debt,
   type DebtBalance,
   type DebtBalanceRow,
   type DebtInput,

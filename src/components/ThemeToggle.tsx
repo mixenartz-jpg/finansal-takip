@@ -1,12 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  applyTheme,
-  readStoredTheme,
-  THEME_STORAGE_KEY,
-  type Theme,
-} from "@/lib/ui/theme";
+import { useSyncExternalStore } from "react";
+import { applyTheme, isTheme, THEME_STORAGE_KEY, type Theme } from "@/lib/ui/theme";
 
 /**
  * Tema geçişi — Açık / Koyu / Sistem.
@@ -22,8 +17,34 @@ import {
  *
  * Sunucuda `localStorage` yok. İlk render'da bir seçimi işaretli
  * göstermek, istemcide başka bir seçim çıkınca hidrasyon
- * uyuşmazlığı üretir. `mounted` bayrağı bunu önler.
+ * uyuşmazlığı üretir. Sunucu anlık görüntüsü `null` döner ve
+ * hidrasyon bitene kadar yer tutucu çizilir.
+ *
+ * ── DOĞRULUK KAYNAĞI: data-theme ÖZNİTELİĞİ ──
+ *
+ * Seçim `<html data-theme>`'dan okunur, `localStorage`'dan değil.
+ * Flash önleyici script onu hidrasyondan önce yazıyor; `applyTheme`
+ * de her seçimde güncelliyor. Gizli sekmede depolama yazılamasa
+ * bile düğme gerçek görünümü gösterir.
  */
+
+function subscribe(onChange: () => void) {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+  return () => observer.disconnect();
+}
+
+function getSnapshot(): Theme {
+  const attr = document.documentElement.getAttribute("data-theme");
+  return isTheme(attr) ? attr : "system";
+}
+
+function getServerSnapshot(): Theme | null {
+  return null;
+}
 
 const OPTIONS: { value: Theme; label: string }[] = [
   { value: "light", label: "Açık" },
@@ -32,16 +53,9 @@ const OPTIONS: { value: Theme; label: string }[] = [
 ];
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("system");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setTheme(readStoredTheme(window.localStorage));
-    setMounted(true);
-  }, []);
+  const theme = useSyncExternalStore<Theme | null>(subscribe, getSnapshot, getServerSnapshot);
 
   function handleSelect(next: Theme) {
-    setTheme(next);
     applyTheme(next, document.documentElement);
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, next);
@@ -51,7 +65,7 @@ export function ThemeToggle() {
     }
   }
 
-  if (!mounted) {
+  if (theme === null) {
     // Yer tutucu: düğme grubu sonradan belirince başlık zıplamasın.
     return <div className="h-8 w-[132px]" aria-hidden />;
   }

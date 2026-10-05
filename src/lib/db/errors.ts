@@ -92,7 +92,6 @@ export function toUserMessage(error: DbErrorLike, context?: string): string {
  */
 function logDbError(raw: string, context?: string): void {
   if (process.env.NODE_ENV === "production") return;
-  // eslint-disable-next-line no-console
   console.error(`[db] ${context ?? "hata"}: ${raw}`);
 }
 

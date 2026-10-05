@@ -175,7 +175,6 @@ function translateAuthError(error: unknown): string {
   // Tanınmayan hata: ayrıntı KULLANICIYA GİTMEZ, konsola gider.
   // Aksi halde her arıza "bağlantınızı kontrol edin" gibi görünür ve
   // gerçek sebep (yapılandırma, kota, doğrulama) teşhis edilemez.
-  // eslint-disable-next-line no-console
   console.error(`[auth] ${message}`);
   return "Giriş yapılamadı. Bağlantınızı kontrol edip tekrar deneyin.";
 }
