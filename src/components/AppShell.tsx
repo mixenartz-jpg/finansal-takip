@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { DictationSheet } from "@/features/dictation/DictationSheet";
+import { AssistantSheet } from "@/features/assistant/AssistantSheet";
 import { Sheet } from "@/components/Sheet";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -31,7 +31,7 @@ const NAV = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const [dictationOpen, setDictationOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   return (
     <div className="min-h-dvh bg-[var(--bg)]">
@@ -95,8 +95,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           bir alt sayfaya gömmek, onu "ana yol" olmaktan çıkarırdı. */}
       <button
         type="button"
-        onClick={() => setDictationOpen(true)}
-        aria-label="Sesli işlem ekle"
+        onClick={() => setAssistantOpen(true)}
+        aria-label="Asistanı aç"
         className={[
           "fixed bottom-20 right-4 z-(--z-sticky) grid size-14 place-items-center",
           "rounded-full bg-[var(--brand)] text-[var(--on-brand)] sm:bottom-6",
@@ -113,24 +113,27 @@ export function AppShell({ children }: { children: ReactNode }) {
         </svg>
       </button>
 
-      {dictationOpen && (
-        <DictationOverlay onClose={() => setDictationOpen(false)} />
+      {assistantOpen && (
+        <AssistantOverlay onClose={() => setAssistantOpen(false)} />
       )}
     </div>
   );
 }
 
 /**
- * Sesli giriş katmanı.
+ * Asistan katmanı.
  *
  * Modal değil alt sayfa (sheet): telefonda ekranın altından açılır
- * ve tek elle kapatılabilir. Ortada beliren bir diyalog, mikrofon
+ * ve tek elle kapatılabilir. Ortada beliren bir diyalog, giriş
  * düğmesini başparmaktan uzaklaştırırdı.
+ *
+ * Eskiden yalnızca dikte paneliydi; artık sohbet asistanı. Mikrofon
+ * korundu — `useSpeechRecognition` aynı hook.
  */
-function DictationOverlay({ onClose }: { onClose: () => void }) {
+function AssistantOverlay({ onClose }: { onClose: () => void }) {
   return (
-    <Sheet label="Sesli işlem ekle" onClose={onClose} padded={false}>
-      <DictationSheet onClose={onClose} />
+    <Sheet label="Asistan" onClose={onClose} padded={false}>
+      <AssistantSheet onClose={onClose} />
     </Sheet>
   );
 }

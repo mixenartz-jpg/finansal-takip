@@ -1,0 +1,408 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useSpeechRecognition } from "@/features/dictation/useSpeechRecognition";
+import { supportMessage } from "@/features/dictation/support";
+import { useCategories } from "@/features/categories/queries";
+import { useAccounts } from "@/features/accounts/queries";
+import { useCreateTransaction } from "@/features/transactions/queries";
+import { todayStr } from "@/lib/date/date";
+import { Button } from "@/components/ui";
+import { ActionCard } from "./ActionCard";
+import { intentToTransactionInput } from "./to-input";
+import { draftToIntent } from "./local-first";
+import { createParser } from "@/features/parser";
+import {
+  addAssistantAction,
+  addAssistantError,
+  addAssistantText,
+  addUserMessage,
+  emptyConversation,
+  resolveAction,
+  type Conversation,
+} from "./conversation";
+import type { Intent } from "./intent";
+
+/**
+ * Sohbet asistanı paneli.
+ *
+ * ── AKIŞ ──
+ *
+ *   yaz veya söyle → /api/chat → niyet → ONAY KARTI → mevcut hook
+ *
+ * Asistan hiçbir şeyi kendi başına kaydetmez ve Supabase'e
+ * DOKUNMAZ: onay sonrası kayıt `useCreateTransaction` ile, yani
+ * formların kullandığı aynı kapıdan yapılıyor.
+ *
+ * ── MİKROFON KORUNDU ──
+ *
+ * `useSpeechRecognition` aynen kullanılıyor. Ses tarayıcıda metne
+ * çevrilip metin kutusuna yazılıyor; sunucuya ses GİTMİYOR.
+ * Desteklenmeyen tarayıcıda mikrofon hiç gösterilmez, kullanıcı
+ * yazarak devam eder — tıklandığında hiçbir şey yapmayan düğme,
+ * olmayan düğmeden kötüdür.
+ */
+
+/** Faz 3'ten: `/api/chat` cevabının şekli. */
+interface ChatResponse {
+  intent?: Intent;
+  text?: string;
+  error?: string;
+}
+
+/**
+ * Kural motoru — modül düzeyinde, tek sefer kurulur.
+ *
+ * Her render'da `createParser()` çağrılsaydı zincir yeniden
+ * kurulurdu. Ayrıca bu, dikte panelindeki aynı deseni koruyor.
+ */
+const parser = createParser();
+
+export function AssistantSheet({ onClose }: { onClose: () => void }) {
+  const speech = useSpeechRecognition();
+  const categories = useCategories();
+  const accounts = useAccounts();
+  const createTransaction = useCreateTransaction();
+
+  const [conversation, setConversation] = useState<Conversation>(emptyConversation);
+  const [draft, setDraft] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const listEnd = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Yeni mesaj gelince en alta kaydır: kullanıcı cevabı görmek için
+  // elle kaydırmak zorunda kalmasın.
+  useEffect(() => {
+    listEnd.current?.scrollIntoView({ block: "end" });
+  }, [conversation.messages.length, thinking]);
+
+  // Ses metne çevrilince kutuya yaz. Otomatik GÖNDERİLMEZ:
+  // kullanıcı yanlış duyulan bir cümleyi düzeltebilmeli.
+  useEffect(() => {
+    if (speech.transcript) {
+      setDraft((d) => (d ? `${d} ${speech.transcript}` : speech.transcript));
+      speech.reset();
+      inputRef.current?.focus();
+    }
+  }, [speech.transcript, speech]);
+
+  async function send(text: string) {
+    const message = text.trim();
+    if (!message || thinking) return;
+
+    setConversation((c) => addUserMessage(c, message));
+    setDraft("");
+
+    /*
+     * ── ÖNCE KURAL MOTORU ──
+     *
+     * Ücretsiz, anlık, çevrimdışı. "200 tl yemek aldım" gibi
+     * cümlelerde Gemini'ye hiç gitmiyoruz: günlük kota korunur ve
+     * kullanıcı ağ gecikmesi beklemez. Emin olmazsa null döner ve
+     * cümle aşağıda `/api/chat`'e devredilir.
+     */
+    const localCtx = {
+      categories: categories.data ?? [],
+      accounts: accounts.data ?? [],
+      defaultAccountId: accounts.data?.[0]?.id ?? null,
+    };
+
+    try {
+      const parsed = await parser.parse(message, {
+        categories: categories.data ?? [],
+        accounts: accounts.data ?? [],
+        today: todayStr(),
+        defaultAccountId: localCtx.defaultAccountId,
+      });
+      const local = draftToIntent(parsed, localCtx);
+      if (local) {
+        setConversation((c) => addAssistantAction(c, local));
+        return;
+      }
+    } catch {
+      // Kural motoru patlasa bile sohbet durmaz: Gemini'ye devret.
+    }
+
+    setThinking(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message,
+          // Yalnızca ADLAR gidiyor — kimlik sunucuya bile taşınmıyor.
+          context: {
+            today: todayStr(),
+            categories: (categories.data ?? []).map((c) => ({ name: c.name, kind: c.kind })),
+            accounts: (accounts.data ?? []).map((a) => ({ name: a.name, kind: a.kind })),
+          },
+        }),
+      });
+
+      const body = (await res.json()) as ChatResponse;
+
+      if (!res.ok || body.error) {
+        setConversation((c) => addAssistantError(c, body.error ?? "Bir şeyler ters gitti."));
+        return;
+      }
+      if (body.intent) {
+        setConversation((c) => addAssistantAction(c, body.intent!));
+        return;
+      }
+      if (body.text) {
+        setConversation((c) => addAssistantText(c, body.text!));
+        return;
+      }
+      setConversation((c) => addAssistantError(c, "Bunu anlayamadım, tekrar söyler misin?"));
+    } catch {
+      // Ağ koptu ya da cevap JSON değil. Kullanıcı çıkmazda kalmasın.
+      setConversation((c) =>
+        addAssistantError(c, "Sunucuya ulaşamadım. İşlemi elle de ekleyebilirsin."),
+      );
+    } finally {
+      setThinking(false);
+    }
+  }
+
+  function handleConfirm(messageId: string, intent: Intent) {
+    // Şimdilik yalnızca işlem ekleme uygulanıyor; diğer araçlar
+    // Faz 5'te bağlanacak. Uygulanamayan niyet SESSİZCE geçmiyor,
+    // kullanıcıya ne olduğu söyleniyor.
+    if (intent.name !== "createTransaction") {
+      setConversation((c) =>
+        resolveAction(
+          c,
+          messageId,
+          "failed",
+          "Bunu henüz uygulayamıyorum. İlgili sayfadan elle yapabilirsin.",
+        ),
+      );
+      return;
+    }
+
+    const resolved = intentToTransactionInput(intent.args, {
+      categories: categories.data ?? [],
+      accounts: accounts.data ?? [],
+      defaultAccountId: accounts.data?.[0]?.id ?? null,
+    });
+
+    if (!resolved.ok) {
+      setConversation((c) => resolveAction(c, messageId, "failed", resolved.error));
+      return;
+    }
+
+    setSavingId(messageId);
+    createTransaction.mutate(resolved.input, {
+      onSuccess: () => {
+        setSavingId(null);
+        setConversation((c) => resolveAction(c, messageId, "done"));
+      },
+      onError: (err) => {
+        setSavingId(null);
+        setConversation((c) => resolveAction(c, messageId, "failed", err.message));
+      },
+    });
+  }
+
+  const listening = speech.state === "listening";
+  const micSupported = speech.support.supported;
+  /*
+   * Mikrofon yoksa SEBEBİ söylenir. Düğmeyi sessizce gizlemek
+   * "bu uygulamada sesli giriş yok" izlenimi verirdi; oysa
+   * Firefox/Safari'de API yok ya da sayfa http:// üzerinden
+   * açılmış olabilir — ikisi de kullanıcının çözebileceği şeyler.
+   */
+  const micNote = supportMessage(speech.support);
+
+  return (
+    <div className="flex max-h-[80dvh] flex-col">
+      <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
+        <h2 className="text-sm font-semibold text-[var(--ink)]">Asistan</h2>
+        <Button variant="ghost" onClick={onClose}>
+          Kapat
+        </Button>
+      </div>
+
+      <div className="min-h-[12rem] flex-1 overflow-y-auto px-4 py-3">
+        {conversation.messages.length === 0 && !thinking ? (
+          <Welcome />
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {conversation.messages.map((m) => (
+              <li key={m.id}>
+                {m.action ? (
+                  <ActionCard
+                    action={m.action}
+                    saving={savingId === m.id}
+                    onConfirm={() => handleConfirm(m.id, m.action!.intent)}
+                    onCancel={() =>
+                      setConversation((c) => resolveAction(c, m.id, "cancelled"))
+                    }
+                  />
+                ) : (
+                  <Bubble role={m.role} isError={m.isError}>
+                    {m.text}
+                  </Bubble>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {thinking && (
+          <p role="status" className="mt-3 text-[13px] text-[var(--ink-3)]">
+            Düşünüyorum…
+          </p>
+        )}
+
+        {listening && (
+          <p role="status" className="mt-3 text-[13px] text-[var(--ink-3)]">
+            Dinliyorum… {speech.interim}
+          </p>
+        )}
+
+        {speech.error && (
+          <p role="alert" className="mt-3 text-[13px] text-[var(--danger)]">
+            {speech.error}
+          </p>
+        )}
+
+        {micNote && conversation.messages.length === 0 && (
+          <p className="mt-3 text-[13px] text-[var(--ink-3)]">{micNote}</p>
+        )}
+
+        <div ref={listEnd} />
+      </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void send(draft);
+        }}
+        className="flex items-end gap-2 border-t border-[var(--border)] px-4 py-3"
+      >
+        <label htmlFor="asistan-giris" className="sr-only">
+          Asistana yaz
+        </label>
+        <textarea
+          id="asistan-giris"
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter gönderir, Shift+Enter satır atlar — sohbet
+            // kutularının beklenen davranışı.
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void send(draft);
+            }
+          }}
+          rows={1}
+          placeholder="Örnek: bugün markete 300 lira harcadım"
+          className={[
+            "min-h-9 max-h-32 flex-1 resize-none rounded-[var(--r-md)] px-3 py-2 text-sm",
+            "border border-[var(--border-strong)] bg-[var(--bg)] text-[var(--ink)]",
+            "placeholder:text-[var(--ink-3)]",
+            "focus:border-[var(--brand)] focus:outline-none",
+            "transition-colors duration-[var(--dur-fast)] ease-[var(--ease)]",
+          ].join(" ")}
+        />
+
+        {micSupported && (
+          <button
+            type="button"
+            onClick={listening ? speech.stop : speech.start}
+            aria-label={listening ? "Kaydı durdur" : "Sesli giriş başlat"}
+            aria-pressed={listening}
+            className={[
+              "grid size-9 shrink-0 place-items-center rounded-[var(--r-md)]",
+              "transition-colors duration-[var(--dur-fast)] ease-[var(--ease)]",
+              listening
+                ? "bg-[var(--expense)] text-[var(--on-expense)]"
+                : "bg-[var(--surface-2)] text-[var(--ink-2)] hover:text-[var(--ink)]",
+            ].join(" ")}
+          >
+            <MicGlyph />
+          </button>
+        )}
+
+        <Button variant="primary" type="submit" disabled={!draft.trim() || thinking}>
+          Gönder
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+/**
+ * Boş durum.
+ *
+ * "Henüz mesaj yok" demek hiçbir şey öğretmez. Örnekler arayüzün
+ * ne yapabildiğini gösteriyor ve ilk cümleyi yazmayı kolaylaştırıyor.
+ */
+function Welcome() {
+  return (
+    <div className="flex flex-col gap-2 py-4">
+      <p className="text-sm text-[var(--ink-2)]">
+        İşlem ekleyebilir, harcamanı sorabilirsin.
+      </p>
+      <ul className="flex flex-col gap-1 text-[13px] text-[var(--ink-3)]">
+        <li>“bugün markete 300 lira harcadım”</li>
+        <li>“bu ay ne kadar harcadım”</li>
+        <li>“kasada ne kadar var”</li>
+      </ul>
+    </div>
+  );
+}
+
+function Bubble({
+  role,
+  isError,
+  children,
+}: {
+  role: "user" | "assistant";
+  isError?: boolean;
+  children: React.ReactNode;
+}) {
+  const mine = role === "user";
+  return (
+    <div className={mine ? "flex justify-end" : "flex justify-start"}>
+      <p
+        className={[
+          "max-w-[85%] whitespace-pre-wrap rounded-[var(--r-lg)] px-3 py-2 text-sm",
+          mine
+            ? "bg-[var(--brand-soft)] text-[var(--brand-ink)]"
+            : isError
+              ? "bg-[var(--surface-2)] text-[var(--danger)]"
+              : "bg-[var(--surface-2)] text-[var(--ink-2)]",
+        ].join(" ")}
+        {...(isError ? { role: "alert" } : {})}
+      >
+        {children}
+      </p>
+    </div>
+  );
+}
+
+function MicGlyph() {
+  return (
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="22" />
+    </svg>
+  );
+}
