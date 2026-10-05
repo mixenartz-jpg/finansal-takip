@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { runAssistant } from "@/features/assistant/chain";
-import { runReadTool, type ReadToolData } from "@/features/assistant/read-tools";
+import { runReadTool, capReadData, type ReadToolData } from "@/features/assistant/read-tools";
 import { RateLimiter } from "@/features/assistant/ratelimit";
 import type { AssistantContext } from "@/features/assistant/prompt";
 
@@ -233,7 +233,9 @@ export async function POST(request: NextRequest) {
 
   const ctx = normalizeContext(body.context);
 
-  const readData = normalizeReadData(body.readData);
+  // Biçim temizliği + boyut tavanı: elle kurulmuş dev bir gövde
+  // sunucuyu boşa çalıştırmasın.
+  const readData = capReadData(normalizeReadData(body.readData));
 
   const result = await runAssistant({
     apiKey,

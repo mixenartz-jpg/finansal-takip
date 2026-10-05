@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { runReadTool, type ReadToolData } from "./read-tools";
+import { runReadTool, capReadData, MAX_INPUT_ROWS, type ReadToolData } from "./read-tools";
 import type { Kurus } from "@/lib/money/types";
 import type { DateStr } from "@/lib/date/types";
 
@@ -187,5 +187,47 @@ describe("runReadTool -- tanınmayan araç", () => {
   test("yazma aracı burada çalıştırılmaz", () => {
     expect(runReadTool("createTransaction", {}, data)).toBeNull();
     expect(runReadTool("dropTables", {}, data)).toBeNull();
+  });
+});
+
+describe("capReadData -- ★ girdi boyutu sınırlı", () => {
+  /**
+   * ── NEDEN SUNUCUDA KESİLİYOR ──
+   *
+   * `readData` istemciden geliyor. Dürüst istemci 100 işlem
+   * gönderiyor, ama istek elle kurulabilir: 100.000 satırlık bir
+   * gövde sunucuyu hepsini dönüştürmeye zorlar ve özet üretimi
+   * boşa CPU yakar.
+   *
+   * Özet çıktısı zaten 25 satırda kesiliyor, ama o kesme
+   * DÖNÜŞTÜRMEDEN SONRA oluyor. Kapı girişte olmalı.
+   */
+  test("işlem listesi tavanda kesilir", () => {
+    const many = Array.from({ length: 5000 }, () => ({
+      kind: "expense" as const,
+      amountKurus: 100 as Kurus,
+      date: "2026-10-10" as DateStr,
+      categoryName: "Market",
+      note: null,
+    }));
+
+    const capped = capReadData({ ...data, transactions: many });
+    expect(capped.transactions.length).toBe(MAX_INPUT_ROWS);
+  });
+
+  test("hesap, bütçe ve borç listeleri de kesilir", () => {
+    const acc = Array.from({ length: 1000 }, (_, i) => ({
+      name: `H${i}`,
+      kind: "cash" as const,
+      balanceKurus: 1 as Kurus,
+    }));
+    const capped = capReadData({ ...data, accounts: acc });
+    expect(capped.accounts.length).toBe(MAX_INPUT_ROWS);
+  });
+
+  test("tavan altındaki veri olduğu gibi kalır", () => {
+    const capped = capReadData(data);
+    expect(capped.transactions).toHaveLength(data.transactions.length);
+    expect(capped.accounts).toHaveLength(data.accounts.length);
   });
 });

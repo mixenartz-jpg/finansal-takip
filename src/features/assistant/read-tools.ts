@@ -62,6 +62,21 @@ export interface ReadToolData {
 /** Modele gönderilen listelerin tavanı. */
 const MAX_ROWS = 25;
 
+/**
+ * İstemciden KABUL EDİLEN en fazla satır (liste başına).
+ *
+ * ── NEDEN GİRİŞTE DE TAVAN VAR ──
+ *
+ * `readData` istemciden geliyor. Dürüst istemci ~100 işlem
+ * gönderiyor, ama istek elle kurulabilir: 100.000 satırlık bir
+ * gövde sunucuyu hepsini dönüştürüp filtrelemeye zorlar.
+ *
+ * Çıktı zaten `MAX_ROWS` ile kesiliyor ama o kesme DÖNÜŞTÜRMEDEN
+ * SONRA oluyor; kapı girişte olmalı. Tavan dürüst istemcinin
+ * ihtiyacının üstünde tutuldu ki normal kullanım kesilmesin.
+ */
+export const MAX_INPUT_ROWS = 500;
+
 const ACCOUNT_LABELS = { cash: "nakit", bank: "banka", credit_card: "kredi kartı" } as const;
 
 /** Tarih aralığı filtresi — sınırlar DAHİL. */
@@ -187,4 +202,19 @@ export function runReadTool(
     default:
       return null;
   }
+}
+
+/**
+ * Girdi listelerini tavana kırpar.
+ *
+ * Route handler bunu `normalizeReadData`'dan SONRA çağırır:
+ * biçim temizliği ile boyut sınırı ayrı sorumluluklar.
+ */
+export function capReadData(data: ReadToolData): ReadToolData {
+  return {
+    accounts: data.accounts.slice(0, MAX_INPUT_ROWS),
+    transactions: data.transactions.slice(0, MAX_INPUT_ROWS),
+    budgets: data.budgets.slice(0, MAX_INPUT_ROWS),
+    debts: data.debts.slice(0, MAX_INPUT_ROWS),
+  };
 }
