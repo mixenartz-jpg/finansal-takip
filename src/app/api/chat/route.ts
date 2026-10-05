@@ -1,7 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { runAssistant } from "@/features/assistant/chain";
+import { RateLimiter } from "@/features/assistant/ratelimit";
 import type { AssistantContext } from "@/features/assistant/prompt";
+
+/**
+ * Modül düzeyinde: sayaç istekler arasında yaşamalı.
+ *
+ * Route handler gövdesinde kurulsaydı her istek kendi boş
+ * sayacını alır ve sınır hiçbir şey yapmazdı.
+ */
+const limiter = new RateLimiter();
 
 /**
  * Asistan uç noktası.
@@ -91,19 +100,44 @@ function normalizeContext(raw: unknown): AssistantContext {
 }
 
 export async function POST(request: NextRequest) {
+  /*
+   * ── SIRA ÖNEMLİ: ÖNCE OTURUM ──
+   *
+   * Yapılandırma kontrolü (anahtar var mı) önce yapılsaydı,
+   * oturumsuz bir çağrı 503 ile "sunucuda anahtar tanımlı değil"
+   * bilgisini öğrenirdi. Tek bit'lik bir sızıntı ama bedava
+   * önlenebiliyor: kimliği doğrulanmamış çağrı sunucu
+   * yapılandırması hakkında hiçbir şey öğrenmemeli.
+   */
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims?.sub;
+  if (!userId || typeof userId !== "string") {
+    return NextResponse.json({ error: "Oturum bulunamadı." }, { status: 401 });
+  }
+
+  /*
+   * ── HIZ SINIRI ──
+   *
+   * Model zinciri tek istekte 5 modele kadar deneme yapıyor, yani
+   * her çağrı yukarı akışta 5 çağrıya kadar çıkabilir. Anahtar tek
+   * ve paylaşılmış: döngüye giren bir istemci günlük kotayı HERKES
+   * için tüketir. Sınır bu etkiyi kullanıcının kendi payına hapsediyor.
+   */
+  const rl = limiter.check(userId);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Çok hızlı gidiyorsun, biraz bekleyip tekrar dener misin?" },
+      { status: 429, headers: { "retry-after": String(rl.retryAfterSeconds) } },
+    );
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
       { error: "Yapay zeka yapılandırılmamış. İşlemi elle ekleyebilirsin." },
       { status: 503 },
     );
-  }
-
-  // Oturum kontrolü — uç nokta açık bir Gemini vekiline dönüşmesin.
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) {
-    return NextResponse.json({ error: "Oturum bulunamadı." }, { status: 401 });
   }
 
   let body: ChatRequestBody;
