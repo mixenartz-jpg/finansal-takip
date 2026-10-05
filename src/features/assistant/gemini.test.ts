@@ -33,8 +33,16 @@ const fcResponse = {
   ],
 };
 
+/**
+ * Sahte `fetch`.
+ *
+ * İmza BİLEREK `typeof fetch` ile tiplendi: parametresiz
+ * `vi.fn(async () => ...)` yazıldığında TypeScript argüman tipini
+ * boş tuple olarak çıkarıyor ve `mock.calls[0][1]` derlenmiyor —
+ * testler koşsa bile `tsc` kırmızı yanar.
+ */
 function fakeFetch(body: unknown, status = 200) {
-  return vi.fn(
+  return vi.fn<typeof fetch>(
     async () =>
       new Response(JSON.stringify(body), {
         status,
@@ -190,7 +198,7 @@ describe("callGemini -- cevap ayrıştırma", () => {
       model: "gemini-3.8-flash",
       message: "x",
       ctx,
-      fetchFn: vi.fn(async () => {
+      fetchFn: vi.fn<typeof fetch>(async () => {
         throw new TypeError("Failed to fetch");
       }),
     });
@@ -206,7 +214,9 @@ describe("callGemini -- cevap ayrıştırma", () => {
       model: "gemini-3.8-flash",
       message: "x",
       ctx,
-      fetchFn: vi.fn(async () => new Response("<html>502</html>", { status: 200 })),
+      fetchFn: vi.fn<typeof fetch>(
+        async () => new Response("<html>502</html>", { status: 200 }),
+      ),
     });
     expect(r.ok).toBe(false);
   });

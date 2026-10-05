@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi, type MockedFunction } from "vitest";
 import { runAssistant } from "./chain";
 import { MODEL_CHAIN } from "./models";
 
@@ -27,10 +27,16 @@ const json = (body: unknown, status = 200) =>
     headers: { "content-type": "application/json" },
   });
 
-/** Sırayla verilen cevapları döndüren sahte fetch. */
+/**
+ * Sırayla verilen cevapları döndüren sahte fetch.
+ *
+ * `vi.fn<typeof fetch>`: parametresiz yazıldığında TypeScript
+ * argüman tipini boş tuple çıkarıyor ve `mock.calls[i][1]`
+ * derlenmiyor.
+ */
 function sequence(...responses: Response[]) {
   let i = 0;
-  return vi.fn(async () => {
+  return vi.fn<typeof fetch>(async () => {
     const r = responses[i] ?? responses[responses.length - 1];
     i++;
     // Response gövdesi tek kullanımlık: her çağrıda klon ver.
@@ -39,7 +45,7 @@ function sequence(...responses: Response[]) {
 }
 
 /** İstek gövdesinden model adını söker. */
-function modelsUsed(f: ReturnType<typeof vi.fn>): string[] {
+function modelsUsed(f: MockedFunction<typeof fetch>): string[] {
   return f.mock.calls.map((c) => JSON.parse(String(c[1]!.body)).model);
 }
 
@@ -91,7 +97,7 @@ describe("runAssistant -- ★ zincir düşmesi", () => {
 
   test("ağ kopması da düşürür", async () => {
     let i = 0;
-    const f = vi.fn(async () => {
+    const f = vi.fn<typeof fetch>(async () => {
       if (i++ === 0) throw new TypeError("Failed to fetch");
       return json(fcBody);
     });
