@@ -236,8 +236,11 @@ export const TOOLS: readonly ToolDefinition[] = [
     description: "Bir hesabı arşivler. Hesap silinmez, listelerde görünmez olur.",
     parameters: {
       type: "object",
-      properties: { id: ID("Hesap") },
-      required: ["id"],
+      // ADLA çalışır, kimlikle DEĞİL: modele hiç kimlik
+      // gönderilmiyor, dolayısıyla üreteceği her `id` uydurma olur
+      // ve sıfır satır etkiler (sessiz başarısızlık).
+      properties: { accountName: { type: "string", description: "Arşivlenecek hesabın adı." } },
+      required: ["accountName"],
     },
   },
 
@@ -297,8 +300,11 @@ export const TOOLS: readonly ToolDefinition[] = [
     description: "Bir kategorinin bütçesini kaldırır.",
     parameters: {
       type: "object",
-      properties: { id: ID("Bütçe") },
-      required: ["id"],
+      // Bütçe kategorisiyle anılır; kimlik modele gönderilmiyor.
+      properties: {
+        categoryName: { type: "string", description: "Bütçesi kaldırılacak kategorinin adı." },
+      },
+      required: ["categoryName"],
     },
   },
 

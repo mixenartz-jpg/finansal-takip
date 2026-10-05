@@ -205,3 +205,33 @@ export function intentToRecurringInput(
     },
   };
 }
+
+/**
+ * Hedef kaydın kimliğini ADDAN çözer.
+ *
+ * ── NEDEN `args.id` KULLANILMIYOR ──
+ *
+ * Modele hiçbir kimlik gönderilmiyor: sistem yönergesi yalnızca
+ * ad listeliyor (`prompt.ts`) ve okuma araçlarının çıktısında da
+ * kimlik yok (`read-tools.ts`). Dolayısıyla modelin ürettiği `id`
+ * alanı ancak UYDURMA olabilir.
+ *
+ * Uydurma kimlikle `.eq("id", ...)` çağırmak sıfır satır etkiler
+ * — Supabase bunu hata saymaz — ve kullanıcı "oldu" sanır ama
+ * hiçbir şey olmaz. Sessiz başarısızlık, açık hatadan kötüdür.
+ *
+ * (RLS gerçek bir yabancı kimlikte de koruyor; buradaki sorun
+ * güvenlik değil, aracın HİÇ çalışmaması.)
+ */
+export function resolveTargetId(
+  args: Record<string, unknown>,
+  nameKey: string,
+  records: readonly NamedRecord[],
+): { ok: true; id: string } | { ok: false; error: string } {
+  const raw = args[nameKey];
+  if (typeof raw !== "string" || !raw.trim()) {
+    return { ok: false, error: "Hangisini kastettiğini anlayamadım, adını söyler misin?" };
+  }
+  const r = resolveName(raw, records);
+  return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error };
+}

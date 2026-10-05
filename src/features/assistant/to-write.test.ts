@@ -5,6 +5,7 @@ import {
   intentToBudgetInput,
   intentToDebtInput,
   intentToRecurringInput,
+  resolveTargetId,
 } from "./to-write";
 import type { NamedRecord } from "./resolve";
 
@@ -288,6 +289,48 @@ describe("intentToRecurringInput", () => {
       { categories: cats, accounts: accs },
       TODAY,
     );
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toContain("Vakıfbank");
+  });
+});
+
+describe("resolveTargetId -- ★ kimlik ADDAN çözülür", () => {
+  /**
+   * ── NEDEN `args.id` KULLANILAMAZ ──
+   *
+   * Modele hiçbir kimlik gönderilmiyor: ne sistem yönergesinde
+   * (`prompt.ts` yalnızca ad listeler) ne okuma araçlarının
+   * çıktısında. Dolayısıyla modelin ürettiği `id` alanı ancak
+   * UYDURMA olabilir.
+   *
+   * Uydurma kimlikle `.eq("id", ...)` çağırmak sıfır satır
+   * etkiler (Supabase hata vermez) ve kullanıcı "oldu" sanır ama
+   * hiçbir şey olmaz — sessiz bir başarısızlık. RLS gerçek bir
+   * yabancı kimlikte de koruyor, ama asıl sorun aracın HİÇ
+   * çalışmaması.
+   *
+   * Çözüm: bu araçlar da ADLA çalışır.
+   */
+  test("hesap adı kimliğe çevrilir", () => {
+    const r = resolveTargetId({ accountName: "Nakit" }, "accountName", accs);
+    expect(r).toEqual({ ok: true, id: "a-nakit" });
+  });
+
+  test("kategori adı kimliğe çevrilir", () => {
+    const r = resolveTargetId({ categoryName: "Market" }, "categoryName", cats);
+    expect(r).toEqual({ ok: true, id: "c-market" });
+  });
+
+  test("ad yoksa anlaşılır hata", () => {
+    const r = resolveTargetId({}, "accountName", accs);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toMatch(/hangi/i);
+  });
+
+  test("uydurulmuş ad reddedilir", () => {
+    const r = resolveTargetId({ accountName: "Vakıfbank" }, "accountName", accs);
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.error).toContain("Vakıfbank");

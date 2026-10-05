@@ -27,6 +27,7 @@ import { Button } from "@/components/ui";
 import { ActionCard } from "./ActionCard";
 import { intentToTransactionInput } from "./to-input";
 import {
+  resolveTargetId,
   intentToAccountInput,
   intentToBudgetInput,
   intentToCategoryInput,
@@ -341,8 +342,13 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
         return createAccount.mutate(r.input, handlers);
       }
 
-      case "archiveAccount":
-        return archiveAccount.mutate(String(args.id), handlers);
+      case "archiveAccount": {
+        // ADDAN çözülüyor: modele kimlik gönderilmiyor, `args.id`
+        // ancak uydurma olabilirdi ve sıfır satır etkilerdi.
+        const t = resolveTargetId(args, "accountName", accs);
+        if (!t.ok) return fail(t.error);
+        return archiveAccount.mutate(t.id, handlers);
+      }
 
       case "createCategory": {
         const r = intentToCategoryInput(args);
@@ -356,8 +362,15 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
         return upsertBudget.mutate(r.input, handlers);
       }
 
-      case "deleteBudget":
-        return deleteBudget.mutate(String(args.id), handlers);
+      case "deleteBudget": {
+        // Bütçe KATEGORİYLE anılıyor; bütçe kimliği önbellekteki
+        // ilerleme kayıtlarından bulunuyor.
+        const t = resolveTargetId(args, "categoryName", cats);
+        if (!t.ok) return fail(t.error);
+        const budget = (budgets.data ?? []).find((b) => b.categoryId === t.id);
+        if (!budget) return fail("Bu kategoride tanımlı bir bütçe bulamadım.");
+        return deleteBudget.mutate(budget.budgetId, handlers);
+      }
 
       case "createDebt": {
         const r = intentToDebtInput(args, today);
@@ -543,6 +556,24 @@ function Welcome() {
         <li>“bu ay ne kadar harcadım”</li>
         <li>“kasada ne kadar var”</li>
       </ul>
+
+      {/*
+        ── AÇIK BİLGİLENDİRME ──
+
+        Soru sorduğunda hesap/kategori adları, tutarlar, açıklama
+        notları ve borç kişi adları Google'ın Gemini servisine
+        gidiyor. Bu, özelliğin çalışması için gerekli ama
+        kullanıcının BİLMESİ gereken bir şey: notlarda "Ayşe'ye
+        hediye" gibi kişisel içerik olabilir.
+
+        Basit işlem eklemede (kural motoru yeterliyken) hiçbir veri
+        dışarı çıkmıyor — o yüzden "soru sorduğunda" deniyor.
+      */}
+      <p className="mt-2 text-[13px] text-[var(--ink-3)]">
+        Soru sorduğunda hesap ve kategori adların, tutarlar ve açıklama notların
+        Google&apos;ın yapay zekâ servisine gönderilir. Basit işlem eklemede hiçbir
+        şey dışarı çıkmaz.
+      </p>
     </div>
   );
 }

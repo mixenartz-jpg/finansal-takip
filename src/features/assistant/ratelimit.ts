@@ -28,8 +28,24 @@
  * değil.
  */
 
-/** Pencere başına izin verilen istek sayısı (kullanıcı başına). */
-export const RATE_LIMIT = 10;
+/**
+ * Pencere başına izin verilen istek sayısı (kullanıcı başına).
+ *
+ * ── YUKARI AKIŞ ÇARPANI ──
+ *
+ * Bir `/api/chat` isteği en kötü durumda:
+ *   5 (model zinciri, geçici hatalarda düşme)
+ *   × 2 (okuma sorusunda ikinci tur: araç sonucunu geri gönderme)
+ *   = 10 Gemini çağrısı
+ *
+ * Yani dakikada 6 istek → ~60 çağrı. Anahtar TEK ve paylaşımlı.
+ * Faz 5'te ikinci tur eklenince çarpan 5'ten 10'a çıktı; sınır da
+ * 10'dan 6'ya indirildi ki üst bant yerinde kalsın.
+ *
+ * 6 istek/dakika gerçek kullanımı kısıtlamıyor: sohbet asistanına
+ * 10 saniyede bir soru sormak zaten hızlı sayılır.
+ */
+export const RATE_LIMIT = 6;
 
 /** Kayan pencere uzunluğu. */
 export const RATE_WINDOW_MS = 60_000;
