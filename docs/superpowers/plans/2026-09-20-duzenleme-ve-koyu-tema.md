@@ -2346,36 +2346,35 @@ Sohbet asistanının yazma araçları doğrudan bu hook'ları çağırır.
 
 ---
 
-## Bu plandan ÖNCE var olan, kapatılmamış sorunlar
+## Bu plandan ÖNCE var olan sorunlar — durum (2026-10-05)
 
-Bu iki sorun Faz 1–2'den gelmiyor; `main` üzerinde de aynı şekilde
-duruyorlar. Plan kapsamı dışında oldukları için burada kayda geçiriliyor.
+İkisi de Faz 1–2'den gelmiyordu; `main` üzerinde de vardı.
 
-### 1. `npm run lint` çalışmıyor
+### 1. `npm run lint` çalışmıyordu — ✅ KAPANDI
 
-ESLint 9.39.5 config yüklerken çöküyor:
-`TypeError: Converting circular structure to JSON` (eslintrc uyumluluk
-katmanı, `plugins.react` döngüsü). `main` üzerinde de aynı hata alınıyor,
-yani bu dalın getirdiği bir şey değil.
+ESLint 9 config yüklerken çöküyordu (`TypeError: Converting circular
+structure to JSON`, eslintrc uyumluluk katmanında `plugins.react`
+döngüsü). Sebep: `eslint-config-next` 16 artık doğrudan flat config
+veriyor, `FlatCompat` köprüsü gereksiz ve kırık. `eslint.config.mjs`
+flat config'i doğrudan içe aktaracak şekilde yeniden yazıldı.
 
-Etkisi: hiçbir lint kapısı çalışmıyor. Tip denetimi (`tsc --noEmit`) ve
-testler bu boşluğun bir kısmını kapatıyor ama tamamını değil.
+Lint çalışınca ortaya çıkan 3 hata (`react-hooks/set-state-in-effect`)
+ve 4 uyarı düzeltildi:
 
-### 2. Kimlik doğrulamalı E2E projesi hiç koşmadı
+- `useSpeechRecognition`: tarayıcı desteği `useSyncExternalStore` ile
+  okunuyor (sunucu anlık görüntüsü hidrasyonu korur).
+- `ThemeToggle`: seçim `<html data-theme>`'dan `useSyncExternalStore`
+  + `MutationObserver` ile okunuyor; `mounted` bayrağı kalktı. Yan
+  kazanç: depolama engelliyken de düğme gerçek görünümü gösteriyor.
+- `AssistantSheet`: ses metni bir `transcript` efektiyle değil, hook'un
+  `onFinal` geri çağrısıyla kutuya yazılıyor.
 
-`playwright.config.ts` bir `setup` projesi tanımlıyor ve
-`e2e/auth.setup.ts` dosyasına işaret ediyor. O dosya HİÇ var olmadı
-(`git log --all -- e2e/auth.setup.ts` boş). Dolayısıyla `app` projesi —
-`dikte.spec.ts` içindeki 5 test — çalıştırılamıyor.
+### 2. Kimlik doğrulamalı E2E projesi koşmuyordu — ✅ KAPANDI
 
-Etkisi: giriş gerektiren her sayfa (Panel, İşlemler, Bütçe, Düzenli,
-Borç, Rapor, Hesaplar, Kategoriler) uçtan uca doğrulanamıyor. Task 9'un
-"`/kategoriler` sayfasını axe taramasına ekle" adımı bu yüzden
-uygulanamadı; erişilebilirlik kapısı yalnızca `/giris` yüzeyini tarıyor.
+`e2e/auth.setup.ts` Faz 4'te (`ef7e35f`) eklendi. Kimlik bilgisi
+(`E2E_EMAIL` / `E2E_PASSWORD`) yoksa kurulum atlanır ve `app` projesi
+hiç tanımlanmaz; `anon` projesi normal koşar.
 
-`Sheet` bileşeninin klavye sözleşmesi bu boşluk nedeniyle dolaylı
-sınanıyor (`e2e/a11y.spec.ts` → "kipli diyalog klavye sözleşmesi"):
-seçici ve odak sarması gerçek tarayıcıda doğrulanıyor, ama gerçek
-diyalog örneği üzerinde değil.
-
-Bu iki maddenin kapatılması ayrı bir iş kalemi.
+Kalan: kimlik bilgili bir ortamda (`app` projesi) henüz koşturulmadı ve
+`/kategoriler` sayfası axe taramasına eklenmedi — ikisi de gerçek bir
+test hesabı gerektiriyor.
