@@ -31,6 +31,14 @@ export default defineConfig({
         "src/features/reports/csv.ts",
         "src/lib/ui/theme.ts",
         "src/lib/ui/focus.ts",
+        // Asistan: niyet dogrulamasi bir guvenlik siniri, hiz siniri
+        // paylasilan kotayi koruyor. Ikisi de kapsam kapisinda olmali.
+        "src/features/assistant/intent.ts",
+        "src/features/assistant/models.ts",
+        "src/features/assistant/chain.ts",
+        "src/features/assistant/gemini.ts",
+        "src/features/assistant/prompt.ts",
+        "src/features/assistant/ratelimit.ts",
       ],
       // Arayuz tanimlari ve veri sozlukleri: calistirilabilir dal yok,
       // kapsam yuzdesini sulandirirlar.
