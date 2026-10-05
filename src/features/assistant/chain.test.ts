@@ -209,3 +209,95 @@ describe("runAssistant -- ★ model boş döndü", () => {
     expect(r.error).toMatch(/elle|tekrar/i);
   });
 });
+
+describe("runAssistant -- ★ okuma aracı ikinci tur", () => {
+  const readFirstTurn = {
+    id: "v1",
+    status: "requires_action",
+    steps: [
+      { type: "thought", summary: [{ type: "text", text: "bakiyeye bakayım" }], signature: "sig-1" },
+      { type: "function_call", id: "fc_1", name: "getBalances", arguments: {} },
+    ],
+  };
+
+  /**
+   * Okuma aracı ONAY İSTEMEZ: veriyi değiştirmiyor. Zincir aracı
+   * kendisi çalıştırıp sonucu Gemini'ye geri göndermeli ve
+   * kullanıcıya düz cevap dönmeli.
+   */
+  test("okuma aracı çalıştırılıp sonuç geri gönderilir", async () => {
+    const f = sequence(
+      json(readFirstTurn),
+      json({
+        id: "v2",
+        status: "completed",
+        steps: [{ type: "model_output", content: [{ type: "text", text: "Kasada 500 TL var." }] }],
+      }),
+    );
+
+    const r = await runAssistant({
+      apiKey: "k",
+      message: "kasada ne kadar var",
+      ctx,
+      fetchFn: f,
+      // Okuma aracını çalıştıran geri çağrı — veri istemciden gelir.
+      runRead: (name) => (name === "getBalances" ? "Nakit: 500,00 TL" : null),
+    });
+
+    expect(r.kind).toBe("message");
+    if (r.kind !== "message") return;
+    expect(r.text).toBe("Kasada 500 TL var.");
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+
+  /** Model adımları ikinci isteğe BİREBİR girmeli (imzalar şart). */
+  test("★ ikinci istek model adımlarını ve call_id'yi taşır", async () => {
+    const f = sequence(
+      json(readFirstTurn),
+      json({ id: "v2", status: "completed", steps: [{ type: "model_output", content: [{ type: "text", text: "ok" }] }] }),
+    );
+
+    await runAssistant({
+      apiKey: "k",
+      message: "kasada ne kadar var",
+      ctx,
+      fetchFn: f,
+      runRead: () => "Nakit: 500,00 TL",
+    });
+
+    const second = JSON.parse(String(f.mock.calls[1][1]!.body));
+    expect(second.input).toHaveLength(4);
+    expect(second.input[1].signature).toBe("sig-1");
+    const fr = second.input[3];
+    expect(fr.type).toBe("function_result");
+    expect(fr.call_id).toBe("fc_1");
+    expect(fr.result[0].text).toBe("Nakit: 500,00 TL");
+  });
+
+  /**
+   * Yazma aracı ikinci tura GİRMEZ: niyet olarak dönüp onay
+   * kartına gider. Aksi halde asistan sormadan veri değiştirirdi.
+   */
+  test("★ yazma aracı ikinci tura girmez, niyet döner", async () => {
+    const f = sequence(json(fcBody));
+    const r = await runAssistant({
+      apiKey: "k",
+      message: "markete 300",
+      ctx,
+      fetchFn: f,
+      runRead: () => "olmamalı",
+    });
+
+    expect(r.kind).toBe("intent");
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  /** `runRead` verilmezse okuma aracı niyet olarak döner (Faz 4 davranışı). */
+  test("runRead yoksa okuma aracı niyet olarak döner", async () => {
+    const f = sequence(json(readFirstTurn));
+    const r = await runAssistant({ apiKey: "k", message: "x", ctx, fetchFn: f });
+    expect(r.kind).toBe("intent");
+    if (r.kind !== "intent") return;
+    expect(r.intent.name).toBe("getBalances");
+  });
+});

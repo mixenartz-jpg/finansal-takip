@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { runAssistant } from "@/features/assistant/chain";
+import { runReadTool, type ReadToolData } from "@/features/assistant/read-tools";
 import { RateLimiter } from "@/features/assistant/ratelimit";
 import type { AssistantContext } from "@/features/assistant/prompt";
 
@@ -36,6 +37,23 @@ const limiter = new RateLimiter();
 interface ChatRequestBody {
   message?: unknown;
   context?: unknown;
+  /**
+   * Okuma araçlarının üzerinde çalışacağı veri.
+   *
+   * ── NEDEN İSTEMCİDEN GELİYOR ──
+   *
+   * Sunucu kullanıcının verisini GÖRMÜYOR: RLS kullanıcının kendi
+   * oturumuna bağlı ve bu uç nokta `service_role` kullanmıyor.
+   * Veriyi sunucuda yeniden çekmek ya ikinci bir Supabase turu ya
+   * da RLS'i baypas eden bir anahtar gerektirirdi — ikincisi bu
+   * mimarinin tam reddettiği şey.
+   *
+   * İstemci zaten TanStack Query önbelleğinde tutuyor; özeti o
+   * veriden kurup gönderiyor. Gelen veri GÜVENİLMEZ sayılıyor ama
+   * zararı da yok: yalnızca Gemini'ye gönderilecek bir özet
+   * üretiyor, hiçbir yere yazılmıyor.
+   */
+  readData?: unknown;
 }
 
 const MAX_MESSAGE_LENGTH = 1000;
@@ -99,6 +117,61 @@ function normalizeContext(raw: unknown): AssistantContext {
   return { today, categories, accounts };
 }
 
+/**
+ * İstemciden gelen okuma verisini temizler.
+ *
+ * Beklenmeyen alanlar atılıyor. Veri yalnızca özet üretmek için
+ * kullanılıyor ve hiçbir yere yazılmıyor, ama biçimi bozuksa
+ * `runReadTool` çalışma zamanında patlardı.
+ */
+function normalizeReadData(raw: unknown): ReadToolData {
+  const empty: ReadToolData = { accounts: [], transactions: [], budgets: [], debts: [] };
+  if (typeof raw !== "object" || raw === null) return empty;
+  const o = raw as Record<string, unknown>;
+
+  const arr = (v: unknown): Record<string, unknown>[] =>
+    Array.isArray(v)
+      ? v.filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null)
+      : [];
+
+  const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+  const str = (v: unknown): string => (typeof v === "string" ? v : "");
+
+  return {
+    accounts: arr(o.accounts).map((a) => ({
+      name: str(a.name),
+      kind: (a.kind === "bank" || a.kind === "credit_card" ? a.kind : "cash") as
+        | "cash"
+        | "bank"
+        | "credit_card",
+      balanceKurus: num(a.balanceKurus) as ReadToolData["accounts"][number]["balanceKurus"],
+    })),
+    transactions: arr(o.transactions).map((t) => ({
+      kind: (t.kind === "income" || t.kind === "transfer" ? t.kind : "expense") as
+        | "income"
+        | "expense"
+        | "transfer",
+      amountKurus: num(t.amountKurus) as ReadToolData["transactions"][number]["amountKurus"],
+      date: str(t.date) as ReadToolData["transactions"][number]["date"],
+      categoryName: typeof t.categoryName === "string" ? t.categoryName : null,
+      note: typeof t.note === "string" ? t.note : null,
+    })),
+    budgets: arr(o.budgets).map((b) => ({
+      categoryName: str(b.categoryName),
+      limitKurus: num(b.limitKurus) as ReadToolData["budgets"][number]["limitKurus"],
+      spentKurus: num(b.spentKurus) as ReadToolData["budgets"][number]["spentKurus"],
+    })),
+    debts: arr(o.debts).map((d) => ({
+      counterparty: str(d.counterparty),
+      direction: (d.direction === "receivable" ? "receivable" : "payable") as
+        | "payable"
+        | "receivable",
+      principalKurus: num(d.principalKurus) as ReadToolData["debts"][number]["principalKurus"],
+      remainingKurus: num(d.remainingKurus) as ReadToolData["debts"][number]["remainingKurus"],
+    })),
+  };
+}
+
 export async function POST(request: NextRequest) {
   /*
    * ── SIRA ÖNEMLİ: ÖNCE OTURUM ──
@@ -160,7 +233,16 @@ export async function POST(request: NextRequest) {
 
   const ctx = normalizeContext(body.context);
 
-  const result = await runAssistant({ apiKey, message, ctx });
+  const readData = normalizeReadData(body.readData);
+
+  const result = await runAssistant({
+    apiKey,
+    message,
+    ctx,
+    // Okuma aracı sunucuda çalışıyor ama veri istemciden geldi:
+    // RLS baypas edilmiyor, `service_role` devreye girmiyor.
+    runRead: (name, args) => runReadTool(name, args, readData),
+  });
 
   if (result.kind === "error") {
     return NextResponse.json({ error: result.error }, { status: 502 });

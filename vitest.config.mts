@@ -43,6 +43,8 @@ export default defineConfig({
         "src/features/assistant/to-input.ts",
         "src/features/assistant/local-first.ts",
         "src/features/assistant/conversation.ts",
+        "src/features/assistant/to-write.ts",
+        "src/features/assistant/read-tools.ts",
       ],
       // Arayuz tanimlari ve veri sozlukleri: calistirilabilir dal yok,
       // kapsam yuzdesini sulandirirlar.

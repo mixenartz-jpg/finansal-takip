@@ -5,13 +5,24 @@ import { useSpeechRecognition } from "@/features/dictation/useSpeechRecognition"
 import { supportMessage } from "@/features/dictation/support";
 import { useCategories } from "@/features/categories/queries";
 import { useAccounts } from "@/features/accounts/queries";
-import { useCreateTransaction } from "@/features/transactions/queries";
-import { useCreateAccount, useArchiveAccount } from "@/features/accounts/queries";
+import {
+  useCreateTransaction,
+  useRecentTransactions,
+} from "@/features/transactions/queries";
+import {
+  useCreateAccount,
+  useArchiveAccount,
+  useAccountsWithBalances,
+} from "@/features/accounts/queries";
 import { useCreateCategory } from "@/features/categories/queries";
-import { useUpsertBudget, useDeleteBudget } from "@/features/budgets/queries";
-import { useCreateDebt } from "@/features/debts/queries";
+import {
+  useUpsertBudget,
+  useDeleteBudget,
+  useBudgetProgress,
+} from "@/features/budgets/queries";
+import { useCreateDebt, useDebtBalances } from "@/features/debts/queries";
 import { useCreateRule, useDeleteRule } from "@/features/recurring/queries";
-import { todayStr } from "@/lib/date/date";
+import { todayStr, startOfMonth } from "@/lib/date/date";
 import { Button } from "@/components/ui";
 import { ActionCard } from "./ActionCard";
 import { intentToTransactionInput } from "./to-input";
@@ -84,6 +95,20 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
   const createRule = useCreateRule();
   const deleteRule = useDeleteRule();
 
+  /*
+   * ── OKUMA ARACI VERİSİ ──
+   *
+   * Sunucu kullanıcının verisini görmüyor (RLS kullanıcının kendi
+   * oturumuna bağlı, `service_role` yok). Okuma araçları bu yüzden
+   * istemcinin önbelleğinden beslenen bir ÖZET üzerinde çalışıyor.
+   * Ham liste gönderilmiyor: token maliyeti ve gereksiz veri
+   * paylaşımı.
+   */
+  const withBalances = useAccountsWithBalances();
+  const recent = useRecentTransactions(100);
+  const budgets = useBudgetProgress(startOfMonth(todayStr()));
+  const debts = useDebtBalances();
+
   const [conversation, setConversation] = useState<Conversation>(emptyConversation);
   const [draft, setDraft] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -128,6 +153,42 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
     resetSpeech();
     inputRef.current?.focus();
   }, [transcript, resetSpeech]);
+
+  /**
+   * Okuma araçlarının üzerinde çalışacağı özet.
+   *
+   * Kimlik GÖNDERİLMİYOR: kategori/hesap kimlikleri adlara
+   * çevriliyor. Model kimliklerle bir şey yapamaz ve sızdırmanın
+   * karşılığı yok.
+   */
+  function buildReadData() {
+    const catName = new Map((categories.data ?? []).map((c) => [c.id, c.name]));
+    return {
+      accounts: (withBalances.data ?? []).map((a) => ({
+        name: a.name,
+        kind: a.kind,
+        balanceKurus: a.balanceKurus,
+      })),
+      transactions: (recent.data ?? []).map((t) => ({
+        kind: t.kind,
+        amountKurus: t.amountKurus,
+        date: t.date,
+        categoryName: t.categoryId ? (catName.get(t.categoryId) ?? null) : null,
+        note: t.note,
+      })),
+      budgets: (budgets.data ?? []).map((b) => ({
+        categoryName: catName.get(b.categoryId) ?? "Bilinmeyen",
+        limitKurus: b.limitKurus,
+        spentKurus: b.spentKurus,
+      })),
+      debts: (debts.data ?? []).map((d) => ({
+        counterparty: d.counterparty,
+        direction: d.direction,
+        principalKurus: d.principalKurus,
+        remainingKurus: d.remainingKurus,
+      })),
+    };
+  }
 
   async function send(text: string) {
     const message = text.trim();
@@ -195,6 +256,7 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
             categories: (categories.data ?? []).map((c) => ({ name: c.name, kind: c.kind })),
             accounts: (accounts.data ?? []).map((a) => ({ name: a.name, kind: a.kind })),
           },
+          readData: buildReadData(),
         }),
       });
 

@@ -25,6 +25,17 @@ export interface RunAssistantOptions {
   message: string;
   ctx: AssistantContext;
   fetchFn?: typeof fetch;
+  /**
+   * Okuma aracını çalıştıran geri çağrı.
+   *
+   * Veri istemcide (TanStack Query önbelleğinde) yaşıyor; sunucu
+   * onu görmüyor. Bu yüzden okuma aracı ÇAĞIRAN tarafta
+   * çalıştırılıyor ve sonucu buradan geri geliyor.
+   *
+   * Verilmezse okuma aracı da niyet olarak döner — çağıran taraf
+   * ikinci turu desteklemiyordur.
+   */
+  runRead?: (name: string, args: Record<string, unknown>) => string | null;
 }
 
 /**
@@ -61,7 +72,7 @@ function errorFor(status: number): string {
 }
 
 export async function runAssistant(opts: RunAssistantOptions): Promise<AssistantResult> {
-  const { apiKey, message, ctx, fetchFn } = opts;
+  const { apiKey, message, ctx, fetchFn, runRead } = opts;
   let lastStatus = 0;
 
   for (const model of MODEL_CHAIN) {
@@ -78,6 +89,44 @@ export async function runAssistant(opts: RunAssistantOptions): Promise<Assistant
       const parsed = parseIntent(res.call);
       // Doğrulama hatası zinciri İLERLETMEZ.
       if (!parsed.valid) return { kind: "error", error: parsed.error };
+
+      /*
+       * ── OKUMA ARACI: İKİNCİ TUR ──
+       *
+       * Okuma aracı onay İSTEMEZ (veriyi değiştirmiyor). Aracı
+       * burada çalıştırıp sonucu Gemini'ye geri gönderiyoruz; o da
+       * kullanıcıya düz bir cevap yazıyor.
+       *
+       * Yazma aracı bu yola GİRMEZ: niyet olarak dönüp onay
+       * kartına gider. Aksi halde asistan sormadan veri
+       * değiştirirdi.
+       */
+      if (!parsed.intent.needsConfirm && runRead && res.callId) {
+        const readOut = runRead(parsed.intent.name, parsed.intent.args);
+        if (readOut !== null) {
+          const second = await callGemini({
+            apiKey,
+            model,
+            message,
+            ctx,
+            fetchFn,
+            // Adımlar BİREBİR geri gidiyor: `thought` imzaları şart.
+            priorSteps: res.steps,
+            functionResult: {
+              name: parsed.intent.name,
+              callId: res.callId,
+              text: readOut,
+            },
+          });
+
+          if (second.ok && second.text) {
+            return { kind: "message", text: second.text, model };
+          }
+          // İkinci tur başarısız: en azından aracın özetini göster.
+          return { kind: "message", text: readOut, model };
+        }
+      }
+
       return { kind: "intent", intent: parsed.intent, model };
     }
 
