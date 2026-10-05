@@ -305,20 +305,45 @@ türü migration gerektirirdi; kullanıcı kararı: migration yok.
 **Sonuç:** raporda dikte ile asistan ayrışmıyor. İleride ayrım
 gerekirse `0011` ile `'assistant'` eklenir.
 
-### Güncelleme/silme araçları BAĞLANMADI
+### Güncelleme/silme araçları: kayıt seçicisi (2026-10-05)
 
-`updateTransaction`, `deleteTransaction`, `updateAccount`,
-`updateCategory`, `updateDebt`, `updateRecurringRule`,
-`addDebtPayment` tanımlı ama bağlı değil.
+İlk sürümde `updateTransaction`, `deleteTransaction`, `updateAccount`,
+`updateCategory`, `updateDebt`, `updateRecurringRule` ve
+`addDebtPayment` bağlanmamıştı. Sebep: hangi KAYIT olduğunu bilmek
+gerekiyordu, model ise kimlik görmüyor. Kimlikleri modele göndermek
+gizlilik kararını geri alırdı.
 
-Sebep: hangi KAYIT olduğunu bilmek gerekiyor. Model yalnızca ad
-görüyor, kimlik görmüyor. Kimliği bulmak için `findTransactions`
-turunun sonucundan kimlik taşımak gerekir — ama kimlikleri modele
-göndermek gizlilik kararını geri alır.
+`deleteRecurringRule` ise `String(args.id)` ile bağlıydı. Model kimlik
+görmediği için bu kimlik ancak uydurma olabilirdi: silme sıfır satır
+etkileyip yine de "uygulandı" diyordu. Hata bu işle kapatıldı.
 
-Uydurma kimlikle devam etmek YANLIŞ KAYDI silmek olurdu. Bu
-yüzden onaylandığında sessizce geçmiyor, kullanıcıya "hangi kaydı
-kastettiğini güvenle bulamıyorum" deniyor.
+**Çözüm: model TARİF eder, kullanıcı SEÇER.**
 
-**Sonraki faz için:** onay kartında kayıt SEÇİCİSİ (kullanıcı
-listeden seçer, kimlik modele hiç gitmez) doğru yol görünüyor.
+- Araç şemalarında hiçbir kimlik alanı yok (`tools.test.ts` bunu
+  kilitliyor). İşlem `matchFrom`/`matchTo` + isteğe bağlı kategori,
+  açıklama ve tutarla tarif ediliyor. Hesap, kategori, kural ve borç
+  için mevcut adı veriliyor (`accountName`, `categoryName`,
+  `ruleName`, `debtCounterparty`).
+- Adaylar istemcinin kendi önbelleğinden bulunuyor (`targets.ts`,
+  saf ve test edilmiş). Kimlik tarayıcıdan hiç çıkmıyor.
+- Onay kartı "Aranan" ile "Yeni değerler"i ayrı gösteriyor ve
+  adayları listeliyor (`TargetPicker.tsx`). Tek aday seçili geliyor.
+  Birden fazla aday varsa hiçbiri seçili gelmiyor: silmede "hepsi"
+  varsayımı yıkıcı, güncellemede rastgele seçim yanlış kaydı değiştirir.
+- Toplu silme yalnızca `deleteTransaction`'da var ve `MAX_BATCH` (20)
+  ile sınırlı. Aralık en fazla 366 gün. Aday yoksa ya da çok fazlaysa
+  onay kapalı ve sebebi yazıyor.
+- Güncelleme, seçilen kaydın mevcut alanlarıyla birleştirilerek
+  yapılıyor (`to-update.ts`): verilmeyen alanlar korunuyor. Yeni değer
+  yoksa onay kapalı. İşlemde tür değişimi şekli de değiştiriyor
+  (transferde kategori düşer, hedef hesap gerekir).
+- Borç ödemesinde hesap söylenmediyse işlem YARATILMIYOR. Formun
+  varsayılanı (ilk hesap) asistanda gizli bir bakiye değişikliği
+  olurdu.
+
+**Doğrulama:** 949 birim testi. Asıl uygulama, sahte bir Supabase
+sunucusuna bağlanıp tarayıcıda koşturuldu: toplu silme, işlem/hesap
+güncelleme, kural silme, borç ödemesi, değişikliksiz güncelleme ve
+eşleşmeyen tarif senaryolarında veritabanına giden istekler doğrulandı.
+Diyalogda iki temada da axe ihlali çıkmadı. `asistan.spec.ts`'deki
+"kayıt seçicisi" testleri gerçek bir test hesabı gerektiriyor.
