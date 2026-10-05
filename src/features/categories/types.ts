@@ -1,3 +1,5 @@
+import { normalize } from "@/lib/text/normalize";
+
 export type CategoryKind = "income" | "expense";
 
 export const CATEGORY_NAME_MAX = 40;
@@ -64,4 +66,36 @@ export function validateCategory(input: Partial<CategoryInput>): {
   }
 
   return { valid: Object.keys(errors).length === 0, errors };
+}
+
+/** Düzenlenebilir kategori alanları. */
+export interface CategoryPatch {
+  name: string;
+  kind: CategoryKind;
+  keywords: string[];
+}
+
+/**
+ * Kullanıcının yazdığı virgüllü listeyi anahtar kelime dizisine çevirir.
+ *
+ * ── PARSER İLE AYNI NORMALLEŞTİRME ──
+ *
+ * `normalize()` kullanmak ŞART, düz `toLowerCase()` değil. Parser
+ * eşlemeyi `normalize(kw)` üzerinden yapıyor
+ * (`rule/category.ts`); burada başka bir dönüşüm uygulanırsa
+ * kullanıcının eklediği kelime HİÇ eşleşmez ve nedeni görünmez olur.
+ *
+ * Örnek: `toLocaleLowerCase("tr-TR")` "BIM" → "bım" verir, ama
+ * parser "bim" arar. Kullanıcı kelimeyi ekler, çalışmaz, sebebini
+ * anlayamaz.
+ *
+ * Tekilleştirme normalleştirmeden SONRA yapılır: "BİM" ve "BIM"
+ * normalleştikten sonra aynı kelimedir.
+ */
+export function parseKeywords(raw: string): string[] {
+  const parts = raw
+    .split(",")
+    .map((s) => normalize(s.trim()))
+    .filter((s) => s.length > 0);
+  return [...new Set(parts)];
 }

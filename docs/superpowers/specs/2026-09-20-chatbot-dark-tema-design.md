@@ -46,7 +46,7 @@ Bütçe, düzenli ödeme ve borç tarafı tamdır; dokunulmaz.
 | Konu | Karar |
 |---|---|
 | Asistanın yazma yetkisi | **Onay kartıyla.** Okuma serbest, her yazma onaylanır. |
-| AI motoru | **Gemini API, sunucu tarafı.** Anahtar tarayıcıya hiç gitmez. |
+| AI motoru | **Gemini API, sunucu tarafı.** Anahtar tarayıcıya hiç gitmez. Model zinciri aşağıda. |
 | Erişim kapsamı | İşlemler + hesaplar/bakiyeler + kategoriler/bütçeler + düzenli/borçlar (tümü). |
 | Koyu tema | **Sistem tercihi + manuel geçiş** (Açık / Koyu / Sistem). |
 | Sıralama | **Önce elle düzenleme, sonra asistan.** |
@@ -93,6 +93,36 @@ Gemini hiçbir şey yapmaz; yalnızca doğal dili **yapılandırılmış niyete*
 - `service_role` anahtarı hiç devreye girmez; RLS dokunulmadan kalır.
 - Niyet nesnesi istemcide şema doğrulamasından geçer. Gemini tanımsız bir araç adı veya bozuk argüman üretirse istek reddedilir, kullanıcıya hata gösterilir.
 - Yazma yolu her zaman kullanıcı oturumuyla, kullanıcının kendi RLS kapsamında çalışır. Asistan başka bir kullanıcının verisine teknik olarak erişemez.
+
+### Model zinciri
+
+Tek model değil, kota tükenince sıradakine düşen bir zincir. Ücretsiz katmanda her Flash modelinin günlük istek kotası ayrıdır; zincir toplam kapasiteyi ~5'ten ~35'e çıkarır.
+
+| Sıra | Model | Rol | Günlük kota |
+|---|---|---|---|
+| 0 | Kural motoru (`RuleTransactionParser`) | Basit cümleler — ücretsiz, anlık, çevrimdışı | ∞ |
+| 1 | `gemini-3.8-flash` | Ana chatbot beyni | 5 |
+| 2 | `gemini-3.7-flash` | 1 tükenince | 5 |
+| 3 | `gemini-3.6-flash` | 2 tükenince | 5 |
+| 4 | `gemini-3.5-flash` | 3 tükenince | 5 |
+| 5 | `gemini-3.5-flash-lite` | Son çare, en cömert kota | 15 |
+
+Kural motoru HER ZAMAN önce çalışır ve güveni eşiğin üstündeyse hiç ağ çağrısı yapılmaz. Model zinciri yalnızca kural motorunun zorlandığı cümlelerde devreye girer.
+
+**Düşme koşulu:** yalnızca kota/oran hatası (HTTP 429) ve geçici sunucu hatası (5xx). Geçersiz anahtar (401/403) veya bozuk istek (400) zinciri ilerletmez — aynı hata her modelde tekrarlanır ve beş çağrı boşa gider.
+
+### Live API neden kullanılmıyor
+
+`gemini-3.8-live` bu mimariye uymuyor. Sebep zekâsı değil, **bağlantı biçimi**:
+
+- Live API **kalıcı WebSocket (WSS)** gerektirir; istek/cevap HTTP desteklemez. `/api/chat` route handler'ı ise istek alıp cevap dönen, sonra biten bir fonksiyondur.
+- Sesli ajanlar için tasarlanmıştır. Bu uygulamada ses **tarayıcıda** (Web Speech API) metne çevriliyor; sunucuya zaten metin gidiyor. Live API'nin asıl değeri olan ses akışı hiç kullanılmayacak, ama bedeli (WebSocket altyapısı) ödenecekti.
+
+İleride "telefonla konuşur gibi" gerçek sesli asistan istenirse `gemini-3.8-live` doğru seçimdir ve ayrı bir yol olarak eklenir. Bu spec'in kapsamı dışındadır.
+
+### Dikte: tarayıcı ses tanıma korunur
+
+`gemini-3.5-transcribe` yedek olarak EKLENMEZ. Web Speech API Chrome/Edge'de ücretsiz ve sınırsız çalışıyor; Transcribe'ın günlük kotası 3 istek, yani Firefox/Safari kullanıcısı için anlamlı bir yedek oluşturmuyor. O tarayıcılarda kullanıcı sohbet kutusuna yazarak devam eder.
 
 ### Okuma tarafı
 
@@ -189,6 +219,7 @@ Faz 1'den bağımsız; sırası değiştirilebilir.
 
 ### Faz 3 — Asistan altyapısı
 - `/api/chat` route'u, Gemini araç tanımları, niyet şeması ve doğrulaması
+- Model zinciri: 429/5xx'te sıradaki modele düşen sarmalayıcı + testleri
 - Arayüz yok; testlerle sürülür
 - Gemini'nin güncel araç-çağırma API'si `context7` MCP ile doğrulanır, ezberden yazılmaz
 
@@ -221,3 +252,98 @@ Faz 1'den bağımsız; sırası değiştirilebilir.
 - Geri alma (undo) altyapısı — onay kartı bu ihtiyacı karşılıyor
 - Asistanın çok kullanıcılı veya paylaşımlı kullanımı
 - Sesli **yanıt** (asistan konuşmaz, yalnızca dinler ve yazar)
+
+---
+
+## Uygulama durumu (2026-10-05)
+
+Faz 1–5 tamamlandı. Spec'ten SAPAN kararlar ve sebepleri:
+
+### Gemini API: `generateContent` değil `interactions`
+
+Spec yazıldığında eski API varsayılıyordu. `context7` ile
+doğrulandığında (şartı spec'in kendisi koymuştu) API'nin kökten
+değiştiği görüldü:
+
+| | Spec'in varsaydığı | Gerçek |
+|---|---|---|
+| Uç nokta | `models/<model>:generateContent` | `v1beta/interactions` |
+| Araçlar | `tools:[{functionDeclarations:[…]}]` | `tools:[{type:"function",…}]` |
+| Cevap | `candidates[].content.parts[]` | `steps[]` |
+| Argümanlar | JSON string | nesne |
+
+Durumsuz modda (`store:false`) model adımları BİREBİR geri
+gönderilmek zorunda: `thought` adımları `signature` taşıyor ve
+o imzalar yeniden üretilemez.
+
+### Kural motoru sohbette de önce çalışıyor
+
+Spec kural motorunu yalnızca dikte yolunda öngörüyordu. Dikte
+paneli sohbete dönüşünce kural motoru erişilemez kalacaktı —
+ücretsiz, anlık ve çevrimdışı bir yol kaybedilecekti.
+
+Karar: sohbette de önce kural motoru. "200 tl yemek aldım"
+cümlesinde Gemini'ye hiç gidilmiyor. E2E testi bunu ağ isteği
+sayarak doğruluyor.
+
+### Okuma verisi istemciden gidiyor
+
+Spec "Gemini'ye özet gönderilir" diyordu ama özeti kimin kuracağı
+belirsizdi. Sunucu kullanıcının verisini GÖREMİYOR: RLS kullanıcı
+oturumuna bağlı ve bu uç nokta `service_role` kullanmıyor.
+
+Karar: istemci önbellekten özet kuruyor, sunucu onu normalleştirip
+boyutunu kırpıyor. Alternatif (`service_role` ile sunucuda çekmek)
+mimarinin tam reddettiği şey.
+
+### Asistan işlemleri `source: 'voice'`
+
+`source` sütununun check kısıtı yalnızca
+manual/voice/recurring/import kabul ediyor. Ayrı bir `'assistant'`
+türü migration gerektirirdi; kullanıcı kararı: migration yok.
+
+**Sonuç:** raporda dikte ile asistan ayrışmıyor. İleride ayrım
+gerekirse `0011` ile `'assistant'` eklenir.
+
+### Güncelleme/silme araçları: kayıt seçicisi (2026-10-05)
+
+İlk sürümde `updateTransaction`, `deleteTransaction`, `updateAccount`,
+`updateCategory`, `updateDebt`, `updateRecurringRule` ve
+`addDebtPayment` bağlanmamıştı. Sebep: hangi KAYIT olduğunu bilmek
+gerekiyordu, model ise kimlik görmüyor. Kimlikleri modele göndermek
+gizlilik kararını geri alırdı.
+
+`deleteRecurringRule` ise `String(args.id)` ile bağlıydı. Model kimlik
+görmediği için bu kimlik ancak uydurma olabilirdi: silme sıfır satır
+etkileyip yine de "uygulandı" diyordu. Hata bu işle kapatıldı.
+
+**Çözüm: model TARİF eder, kullanıcı SEÇER.**
+
+- Araç şemalarında hiçbir kimlik alanı yok (`tools.test.ts` bunu
+  kilitliyor). İşlem `matchFrom`/`matchTo` + isteğe bağlı kategori,
+  açıklama ve tutarla tarif ediliyor. Hesap, kategori, kural ve borç
+  için mevcut adı veriliyor (`accountName`, `categoryName`,
+  `ruleName`, `debtCounterparty`).
+- Adaylar istemcinin kendi önbelleğinden bulunuyor (`targets.ts`,
+  saf ve test edilmiş). Kimlik tarayıcıdan hiç çıkmıyor.
+- Onay kartı "Aranan" ile "Yeni değerler"i ayrı gösteriyor ve
+  adayları listeliyor (`TargetPicker.tsx`). Tek aday seçili geliyor.
+  Birden fazla aday varsa hiçbiri seçili gelmiyor: silmede "hepsi"
+  varsayımı yıkıcı, güncellemede rastgele seçim yanlış kaydı değiştirir.
+- Toplu silme yalnızca `deleteTransaction`'da var ve `MAX_BATCH` (20)
+  ile sınırlı. Aralık en fazla 366 gün. Aday yoksa ya da çok fazlaysa
+  onay kapalı ve sebebi yazıyor.
+- Güncelleme, seçilen kaydın mevcut alanlarıyla birleştirilerek
+  yapılıyor (`to-update.ts`): verilmeyen alanlar korunuyor. Yeni değer
+  yoksa onay kapalı. İşlemde tür değişimi şekli de değiştiriyor
+  (transferde kategori düşer, hedef hesap gerekir).
+- Borç ödemesinde hesap söylenmediyse işlem YARATILMIYOR. Formun
+  varsayılanı (ilk hesap) asistanda gizli bir bakiye değişikliği
+  olurdu.
+
+**Doğrulama:** 949 birim testi. Asıl uygulama, sahte bir Supabase
+sunucusuna bağlanıp tarayıcıda koşturuldu: toplu silme, işlem/hesap
+güncelleme, kural silme, borç ödemesi, değişikliksiz güncelleme ve
+eşleşmeyen tarif senaryolarında veritabanına giden istekler doğrulandı.
+Diyalogda iki temada da axe ihlali çıkmadı. `asistan.spec.ts`'deki
+"kayıt seçicisi" testleri gerçek bir test hesabı gerektiriyor.

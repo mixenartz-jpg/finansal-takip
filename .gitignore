@@ -11,5 +11,13 @@ coverage
 test-results
 playwright-report
 
+# Playwright oturum durumu: GERCEK bir Supabase oturum tokeni tasir.
+# Commit edilirse herkes o hesaba girebilir.
+e2e/.auth/
+
 # Supabase CLI gecici dosyalari
 supabase/.temp/
+
+# Next.js tarafından otomatik üretilir (next.config: agentRules)
+AGENTS.md
+CLAUDE.md

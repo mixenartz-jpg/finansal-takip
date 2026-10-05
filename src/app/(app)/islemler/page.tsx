@@ -1,20 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import { Sheet } from "@/components/Sheet";
 import { useAccounts } from "@/features/accounts/queries";
 import { useCategories } from "@/features/categories/queries";
 import {
   useRecentTransactions,
   useDeleteTransaction,
+  useUpdateTransaction,
 } from "@/features/transactions/queries";
 import { TransactionList } from "@/features/transactions/TransactionList";
+import { TransactionEditForm } from "@/features/transactions/TransactionEditForm";
+import type { Transaction, TransactionPatch } from "@/features/transactions/types";
 
 export default function IslemlerPage() {
   const accounts = useAccounts();
   const categories = useCategories();
   const transactions = useRecentTransactions(200);
   const deleteTransaction = useDeleteTransaction();
+  const updateTransaction = useUpdateTransaction();
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Transaction | null>(null);
 
   function handleDelete(id: string) {
     // Onay adimi: silme geri alinamaz ve tek dokunusla olmamali.
@@ -25,6 +31,14 @@ export default function IslemlerPage() {
     }
     deleteTransaction.mutate(id);
     setPendingDelete(null);
+  }
+
+  function handleSaveEdit(patch: TransactionPatch) {
+    if (!editing) return;
+    updateTransaction.mutate(
+      { id: editing.id, patch },
+      { onSuccess: () => setEditing(null) },
+    );
   }
 
   return (
@@ -49,7 +63,26 @@ export default function IslemlerPage() {
         accounts={accounts.data ?? []}
         loading={transactions.isPending}
         onDelete={handleDelete}
+        onEdit={setEditing}
       />
+
+      {editing && (
+        <Sheet label="İşlemi düzenle" onClose={() => setEditing(null)}>
+          <TransactionEditForm
+            transaction={editing}
+            categories={categories.data ?? []}
+            accounts={accounts.data ?? []}
+            saving={updateTransaction.isPending}
+            onSave={handleSaveEdit}
+            onCancel={() => setEditing(null)}
+          />
+          {updateTransaction.error && (
+            <p role="alert" className="mt-3 text-[13px] text-[var(--danger)]">
+              {updateTransaction.error.message}
+            </p>
+          )}
+        </Sheet>
+      )}
     </div>
   );
 }

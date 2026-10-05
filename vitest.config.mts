@@ -29,6 +29,25 @@ export default defineConfig({
         "src/features/debts/remaining.ts",
         "src/features/reports/aggregate.ts",
         "src/features/reports/csv.ts",
+        "src/lib/ui/theme.ts",
+        "src/lib/ui/focus.ts",
+        // Asistan: niyet dogrulamasi bir guvenlik siniri, hiz siniri
+        // paylasilan kotayi koruyor. Ikisi de kapsam kapisinda olmali.
+        "src/features/assistant/intent.ts",
+        "src/features/assistant/models.ts",
+        "src/features/assistant/chain.ts",
+        "src/features/assistant/gemini.ts",
+        "src/features/assistant/prompt.ts",
+        "src/features/assistant/ratelimit.ts",
+        "src/features/assistant/resolve.ts",
+        "src/features/assistant/to-input.ts",
+        "src/features/assistant/local-first.ts",
+        "src/features/assistant/conversation.ts",
+        "src/features/assistant/to-write.ts",
+        "src/features/assistant/read-tools.ts",
+        // Kayit secicisi: kimliksiz hedef bulma ve guncelleme cevirileri.
+        "src/features/assistant/targets.ts",
+        "src/features/assistant/to-update.ts",
       ],
       // Arayuz tanimlari ve veri sozlukleri: calistirilabilir dal yok,
       // kapsam yuzdesini sulandirirlar.

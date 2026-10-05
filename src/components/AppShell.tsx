@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { DictationSheet } from "@/features/dictation/DictationSheet";
+import { AssistantSheet } from "@/features/assistant/AssistantSheet";
+import { Sheet } from "@/components/Sheet";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 /**
  * Uygulama kabuğu — üst başlık, gezinme ve sesli giriş erişimi.
@@ -24,11 +26,12 @@ const NAV = [
   { href: "/borclar", label: "Borç" },
   { href: "/rapor", label: "Rapor" },
   { href: "/hesaplar", label: "Hesaplar" },
+  { href: "/kategoriler", label: "Kategori" },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const [dictationOpen, setDictationOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   return (
     <div className="min-h-dvh bg-[var(--bg)]">
@@ -41,7 +44,7 @@ export function AppShell({ children }: { children: ReactNode }) {
        */}
       <a
         href="#icerik"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-(--z-toast) focus:rounded-[var(--r-md)] focus:bg-[var(--brand)] focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-(--z-toast) focus:rounded-[var(--r-md)] focus:bg-[var(--brand)] focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--on-brand)]"
       >
         İçeriğe atla
       </a>
@@ -52,11 +55,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             Hesap Takip
           </Link>
 
-          <nav aria-label="Ana gezinme" className="hidden gap-1 sm:flex">
-            {NAV.map((item) => (
-              <NavLink key={item.href} {...item} active={isActive(pathname, item.href)} />
-            ))}
-          </nav>
+          <div className="flex items-center gap-2">
+            <nav aria-label="Ana gezinme" className="hidden gap-1 sm:flex">
+              {NAV.map((item) => (
+                <NavLink key={item.href} {...item} active={isActive(pathname, item.href)} />
+              ))}
+            </nav>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
@@ -75,7 +81,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         aria-label="Ana gezinme"
         className="fixed inset-x-0 bottom-0 z-(--z-sticky) border-t border-[var(--border)] bg-[var(--bg)] sm:hidden"
       >
-        <div className="mx-auto flex max-w-3xl items-center justify-around px-2 py-2">
+        {/* Sekiz öğe 320px'e sığmıyor: yatay kaydırma taşmayı
+            engeller. `justify-around` yerine `gap` — kaydırılabilir
+            bir şeridi eşit dağıtmak öğeleri kırpar. */}
+        <div className="mx-auto flex max-w-3xl items-center gap-1 overflow-x-auto px-2 py-2">
           {NAV.map((item) => (
             <NavLink key={item.href} {...item} active={isActive(pathname, item.href)} />
           ))}
@@ -86,11 +95,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           bir alt sayfaya gömmek, onu "ana yol" olmaktan çıkarırdı. */}
       <button
         type="button"
-        onClick={() => setDictationOpen(true)}
-        aria-label="Sesli işlem ekle"
+        onClick={() => setAssistantOpen(true)}
+        aria-label="Asistanı aç"
         className={[
           "fixed bottom-20 right-4 z-(--z-sticky) grid size-14 place-items-center",
-          "rounded-full bg-[var(--brand)] text-white sm:bottom-6",
+          "rounded-full bg-[var(--brand)] text-[var(--on-brand)] sm:bottom-6",
           "transition-colors duration-[var(--dur-fast)] hover:bg-[var(--brand-hover)]",
         ].join(" ")}
       >
@@ -104,38 +113,28 @@ export function AppShell({ children }: { children: ReactNode }) {
         </svg>
       </button>
 
-      {dictationOpen && (
-        <DictationOverlay onClose={() => setDictationOpen(false)} />
+      {assistantOpen && (
+        <AssistantOverlay onClose={() => setAssistantOpen(false)} />
       )}
     </div>
   );
 }
 
 /**
- * Sesli giriş katmanı.
+ * Asistan katmanı.
  *
  * Modal değil alt sayfa (sheet): telefonda ekranın altından açılır
- * ve tek elle kapatılabilir. Ortada beliren bir diyalog, mikrofon
+ * ve tek elle kapatılabilir. Ortada beliren bir diyalog, giriş
  * düğmesini başparmaktan uzaklaştırırdı.
+ *
+ * Eskiden yalnızca dikte paneliydi; artık sohbet asistanı. Mikrofon
+ * korundu — `useSpeechRecognition` aynı hook.
  */
-function DictationOverlay({ onClose }: { onClose: () => void }) {
+function AssistantOverlay({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-(--z-sheet)">
-      <button
-        type="button"
-        aria-label="Kapat"
-        onClick={onClose}
-        className="absolute inset-0 bg-[var(--ink)]/20"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Sesli işlem ekle"
-        className="absolute inset-x-0 bottom-0 mx-auto max-w-3xl rounded-t-[var(--r-lg)] border-t border-[var(--border)] bg-[var(--bg)] sm:inset-x-4 sm:bottom-4 sm:rounded-[var(--r-lg)] sm:border"
-      >
-        <DictationSheet onClose={onClose} />
-      </div>
-    </div>
+    <Sheet label="Asistan" onClose={onClose} padded={false}>
+      <AssistantSheet onClose={onClose} />
+    </Sheet>
   );
 }
 
@@ -153,7 +152,7 @@ function NavLink({
       href={href}
       aria-current={active ? "page" : undefined}
       className={[
-        "rounded-[var(--r-md)] px-3 py-1.5 text-sm font-medium",
+        "shrink-0 rounded-[var(--r-md)] px-3 py-1.5 text-sm font-medium",
         "transition-colors duration-[var(--dur-fast)]",
         active
           ? "bg-[var(--brand-soft)] text-[var(--brand-ink)]"

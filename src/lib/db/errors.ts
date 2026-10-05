@@ -32,6 +32,10 @@ const KNOWN_CONSTRAINTS: readonly [string, string][] = [
   ["transfer_shape", "Transfer için hedef hesap seçilmeli ve kategori boş olmalı."],
   ["amount_kurus", "Tutar sıfırdan büyük olmalı."],
   ["Kategori türü", "Seçilen kategori işlem türüyle uyuşmuyor."],
+  [
+    "Kullanımdaki kategorinin türü",
+    "Kullanımdaki kategorinin türü değiştirilemez. Kategoriyi arşivleyip yenisini açın.",
+  ],
   ["same_owner", "Seçilen hesap veya kategori bulunamadı."],
   ["duplicate key", "Bu isimde bir kayıt zaten var."],
   ["credit_limit_only_on_card", "Kredi limiti yalnızca kredi kartı hesabında olur."],
@@ -88,7 +92,6 @@ export function toUserMessage(error: DbErrorLike, context?: string): string {
  */
 function logDbError(raw: string, context?: string): void {
   if (process.env.NODE_ENV === "production") return;
-  // eslint-disable-next-line no-console
   console.error(`[db] ${context ?? "hata"}: ${raw}`);
 }
 

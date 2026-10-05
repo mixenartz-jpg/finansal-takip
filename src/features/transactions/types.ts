@@ -156,3 +156,47 @@ export function validateTransaction(
 
   return { valid: Object.keys(errors).length === 0, errors };
 }
+
+/**
+ * Düzenlenebilir alanlar.
+ *
+ * `source` ve `voiceTranscript` KASITLI OLARAK DIŞARIDA: bir işlemin
+ * sesle eklendiği bilgisi ve ham transkripti geçmiş kaydıdır,
+ * düzenlemeyle değişmez. Transkript ayrıca parser'ı geliştirmek için
+ * tutulan gerçek korpustur — kullanıcı tutarı düzeltince silinmemeli.
+ */
+export type TransactionPatch = Pick<
+  TransactionInput,
+  "kind" | "amountKurus" | "date" | "accountId" | "counterAccountId" | "categoryId" | "note"
+>;
+
+/**
+ * Yamayı doğrular.
+ *
+ * `validateTransaction`'ı yeniden kullanır: aynı kuralları ikinci kez
+ * yazmak, biri değiştiğinde diğerinin sessizce eskimesi demektir.
+ * Yamada bulunmayan alanlar (`voiceTranscript`, `source`) doğrulama
+ * için gerekli olmadığından yer tutucu değerlerle beslenir.
+ */
+export function validateTransactionPatch(
+  patch: Partial<TransactionPatch>,
+): ValidationResult {
+  return validateTransaction({
+    ...patch,
+    voiceTranscript: null,
+    source: "manual",
+  });
+}
+
+/** Yamayı veritabanı sütun adlarına çevirir. */
+export function toPatchRow(patch: TransactionPatch): Record<string, unknown> {
+  return {
+    kind: patch.kind,
+    amount_kurus: patch.amountKurus,
+    date: patch.date,
+    account_id: patch.accountId,
+    counter_account_id: patch.counterAccountId,
+    category_id: patch.categoryId,
+    note: patch.note,
+  };
+}

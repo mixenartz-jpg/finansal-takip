@@ -43,9 +43,66 @@ export const TOKENS = {
   warning: { l: 0.5, c: 0.13, h: 75 },
   warningSoft: { l: 0.96, c: 0.04, h: 75 },
   danger: { l: 0.52, c: 0.19, h: 25 },
+
+  /* ── Dolu buton yazısı ──
+   * Açık temada marka/tehlike renkleri KOYU, üstüne beyaz yazı
+   * gelir. Koyu temada bu renkler AÇIK olur ve beyaz yazı okunmaz
+   * hale gelir (2.52:1 ölçüldü). Bu yüzden buton yazısı sabit
+   * `text-white` değil, temaya göre değişen bir token. */
+  onBrand: { l: 1, c: 0, h: 0 },
+  onDanger: { l: 1, c: 0, h: 0 },
+  onExpense: { l: 1, c: 0, h: 0 },
 } as const satisfies Record<string, Oklch>;
 
 export type TokenName = keyof typeof TOKENS;
+
+/**
+ * Koyu tema değerleri.
+ *
+ * ── TERS ÇEVİRME DEĞİL, YENİDEN HESAPLAMA ──
+ *
+ * Açık temanın lightness değerlerini 1'den çıkarmak ucuz görünür ama
+ * yanlış sonuç verir: koyu zeminde aynı chroma cansız ve kirli
+ * görünür, gelir yeşili ile gider kırmızısı birbirine yaklaşır.
+ * Her değer koyu zemin için ayrı seçildi.
+ *
+ * ── ZEMİN SAF SİYAH DEĞİL ──
+ *
+ * L=0.17, saf siyah (L=0) değil. OLED'de saf siyah kaydırma sırasında
+ * hayalet iz bırakır ve yüzey katmanları (surface/surface-2) siyahtan
+ * ayrışamaz — kart sınırları kaybolur.
+ */
+export const DARK_TOKENS = {
+  bg: { l: 0.17, c: 0.008, h: 265 },
+  surface: { l: 0.21, c: 0.009, h: 265 },
+  surface2: { l: 0.25, c: 0.01, h: 265 },
+  border: { l: 0.32, c: 0.011, h: 265 },
+  borderStrong: { l: 0.44, c: 0.013, h: 265 },
+
+  ink: { l: 0.96, c: 0.003, h: 265 },
+  ink2: { l: 0.86, c: 0.005, h: 265 },
+  ink3: { l: 0.72, c: 0.008, h: 265 },
+
+  brand: { l: 0.72, c: 0.14, h: 266 },
+  brandHover: { l: 0.79, c: 0.13, h: 266 },
+  brandSoft: { l: 0.27, c: 0.05, h: 266 },
+  brandInk: { l: 0.82, c: 0.11, h: 266 },
+
+  income: { l: 0.76, c: 0.16, h: 152 },
+  incomeSoft: { l: 0.26, c: 0.05, h: 152 },
+  expense: { l: 0.72, c: 0.16, h: 25 },
+  expenseSoft: { l: 0.27, c: 0.06, h: 25 },
+
+  warning: { l: 0.81, c: 0.14, h: 75 },
+  warningSoft: { l: 0.28, c: 0.05, h: 75 },
+  danger: { l: 0.72, c: 0.16, h: 25 },
+
+  /* Koyu temada dolu butonun yazısı KOYU: açık marka rengi üstünde
+   * beyaz yazı 2.52:1 veriyordu, zemin tonu 7.59:1 veriyor. */
+  onBrand: { l: 0.17, c: 0.008, h: 265 },
+  onDanger: { l: 0.17, c: 0.008, h: 265 },
+  onExpense: { l: 0.17, c: 0.008, h: 265 },
+} as const satisfies Record<TokenName, Oklch>;
 
 /** OKLCH → sRGB (0..1 aralığında, gamut'a kırpılmış). */
 export function oklchToSrgb({ l: L, c: C, h: hDeg }: Oklch): [number, number, number] {

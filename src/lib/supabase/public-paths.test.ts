@@ -92,3 +92,57 @@ describe("kaynak dosya hâlâ segment sınırı kullanıyor mu", () => {
     );
   });
 });
+
+/**
+ * ── API YOLLARI YÖNLENDİRİLMEZ ──
+ *
+ * `middleware.ts` matcher'ı `/api/*` yollarını da kapsıyor ve
+ * oturum yoksa `/giris`'e YÖNLENDİRİYORDU. Tarayıcı sayfası için
+ * doğru davranış, bir API uç noktası için değil:
+ *
+ *   - `fetch("/api/chat")` yönlendirmeyi SESSİZCE izler (redirect
+ *     varsayılanı "follow"), 200 + HTML alır ve `res.json()`
+ *     "Unexpected token '<'" ile patlar.
+ *   - Çağıran taraf 401 görmediği için "oturum bitti" durumunu
+ *     ayırt edemez; kullanıcıya "yapay zeka bozuk" gibi görünür.
+ *
+ * Gerçek bir istekle doğrulandı: oturumsuz POST /api/chat → 307
+ * ve gövdede "/giris". Route handler'ın kendi 401'i hiç çalışmadı.
+ *
+ * Doğru davranış: API yolunda yönlendirme değil JSON 401.
+ */
+describe("API yolları -- ★ yönlendirme değil 401", () => {
+  function isApiPath(pathname: string): boolean {
+    return pathname === "/api" || pathname.startsWith("/api/");
+  }
+
+  test("/api/chat bir API yolu", () => {
+    expect(isApiPath("/api/chat")).toBe(true);
+  });
+
+  test("/api altındaki her yol API yolu", () => {
+    expect(isApiPath("/api")).toBe(true);
+    expect(isApiPath("/api/chat/stream")).toBe(true);
+  });
+
+  /** Segment sınırı: `/apider` bir API yolu DEĞİL. */
+  test("önek sızıntısı yok", () => {
+    expect(isApiPath("/apider")).toBe(false);
+    expect(isApiPath("/apiary/x")).toBe(false);
+    expect(isApiPath("/islemler")).toBe(false);
+    expect(isApiPath("/")).toBe(false);
+  });
+
+  describe("kaynak dosya API yolunu ayırıyor mu", () => {
+    const source = readFileSync(resolve(import.meta.dirname, "./middleware.ts"), "utf-8");
+
+    test("isApiPath yardımcısı yerinde", () => {
+      expect(source).toContain("function isApiPath");
+    });
+
+    test("oturumsuz API isteğine 401 JSON dönüyor", () => {
+      expect(source).toContain("isApiPath(pathname)");
+      expect(source).toMatch(/status:\s*401/);
+    });
+  });
+});

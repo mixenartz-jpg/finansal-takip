@@ -1,7 +1,13 @@
 import { describe, test, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { TOKENS, contrastRatio, AA_NORMAL, AA_LARGE, type Oklch } from "./colors";
+import {
+  TOKENS,
+  DARK_TOKENS,
+  contrastRatio,
+  AA_NORMAL,
+  type Oklch,
+} from "./colors";
 
 /**
  * Kontrast kapısı.
@@ -22,7 +28,9 @@ const PAIRS: { name: string; fg: Oklch; bg: Oklch; min: number }[] = [
   { name: "ikincil / yüzey-2", fg: TOKENS.ink3, bg: TOKENS.surface2, min: AA_NORMAL },
 
   { name: "marka bağlantı / zemin", fg: TOKENS.brand, bg: TOKENS.bg, min: AA_NORMAL },
-  { name: "buton yazısı / marka", fg: TOKENS.bg, bg: TOKENS.brand, min: AA_NORMAL },
+  { name: "buton yazısı / marka", fg: TOKENS.onBrand, bg: TOKENS.brand, min: AA_NORMAL },
+  { name: "tehlike butonu yazısı / tehlike", fg: TOKENS.onDanger, bg: TOKENS.danger, min: AA_NORMAL },
+  { name: "mikrofon yazısı / gider", fg: TOKENS.onExpense, bg: TOKENS.expense, min: AA_NORMAL },
   { name: "marka mürekkep / marka yumuşak", fg: TOKENS.brandInk, bg: TOKENS.brandSoft, min: AA_NORMAL },
 
   { name: "GELİR tutarı / zemin", fg: TOKENS.income, bg: TOKENS.bg, min: AA_NORMAL },
@@ -94,20 +102,139 @@ describe("token senkronu -- CSS ile TS aynı değerleri taşımalı", () => {
     warning: "--warning",
     warningSoft: "--warning-soft",
     danger: "--danger",
+    onBrand: "--on-brand",
+    onDanger: "--on-danger",
+    onExpense: "--on-expense",
   };
 
-  for (const [token, cssVar] of Object.entries(CSS_VAR_BY_TOKEN)) {
-    test(`${cssVar} CSS'te TS ile aynı`, () => {
-      const re = new RegExp(
-        `${cssVar!.replace(/-/g, "\\-")}:\\s*oklch\\(([\\d.]+)\\s+([\\d.]+)\\s+([\\d.]+)\\)`,
-      );
-      const m = css.match(re);
-      expect(m, `${cssVar} globals.css içinde bulunamadı`).not.toBeNull();
+  /**
+   * CSS artık İKİ token kümesi taşıyor. Basit bir regex her
+   * değişkenin İLK eşleşmesini bulur ve koyu tema bloğu sessizce
+   * doğrulanmadan kalır — test yeşil görünürken hiçbir şey
+   * doğrulamaz. Bu yüzden bloklar önce ayrılıyor.
+   */
+  function extractBlock(source: string, marker: string): string {
+    const start = source.indexOf(marker);
+    expect(start, `"${marker}" globals.css içinde bulunamadı`).toBeGreaterThan(-1);
+    const open = source.indexOf("{", start);
+    let depth = 0;
+    for (let i = open; i < source.length; i++) {
+      if (source[i] === "{") depth++;
+      else if (source[i] === "}") {
+        depth--;
+        if (depth === 0) return source.slice(open, i);
+      }
+    }
+    throw new Error(`"${marker}" bloğu kapanmamış`);
+  }
 
-      const t = TOKENS[token as keyof typeof TOKENS];
-      expect(Number(m![1]), `${cssVar} L`).toBeCloseTo(t.l, 3);
-      expect(Number(m![2]), `${cssVar} C`).toBeCloseTo(t.c, 3);
-      expect(Number(m![3]), `${cssVar} H`).toBeCloseTo(t.h, 1);
+  const lightBlock = extractBlock(css, "/* THEME:LIGHT */");
+  const darkBlock = extractBlock(css, "/* THEME:DARK */");
+
+  function expectTokenInBlock(block: string, cssVar: string, expected: Oklch) {
+    const re = new RegExp(
+      `${cssVar.replace(/-/g, "\\-")}:\\s*oklch\\(([\\d.]+)\\s+([\\d.]+)\\s+([\\d.]+)\\)`,
+    );
+    const m = block.match(re);
+    expect(m, `${cssVar} blokta bulunamadı`).not.toBeNull();
+    expect(Number(m![1]), `${cssVar} L`).toBeCloseTo(expected.l, 3);
+    expect(Number(m![2]), `${cssVar} C`).toBeCloseTo(expected.c, 3);
+    expect(Number(m![3]), `${cssVar} H`).toBeCloseTo(expected.h, 1);
+  }
+
+  for (const [token, cssVar] of Object.entries(CSS_VAR_BY_TOKEN)) {
+    const key = token as keyof typeof TOKENS;
+    test(`${cssVar} AÇIK temada TS ile aynı`, () => {
+      expectTokenInBlock(lightBlock, cssVar!, TOKENS[key]);
+    });
+    test(`${cssVar} KOYU temada TS ile aynı`, () => {
+      expectTokenInBlock(darkBlock, cssVar!, DARK_TOKENS[key]);
     });
   }
+});
+
+describe("koyu tema kontrastı -- WCAG AA", () => {
+  const DARK_PAIRS: { name: string; fg: Oklch; bg: Oklch; min: number }[] = [
+    { name: "başlık / zemin", fg: DARK_TOKENS.ink, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+    { name: "GÖVDE metni / zemin", fg: DARK_TOKENS.ink2, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+    { name: "ikincil metin / zemin", fg: DARK_TOKENS.ink3, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+    { name: "gövde / yüzey", fg: DARK_TOKENS.ink2, bg: DARK_TOKENS.surface, min: AA_NORMAL },
+    { name: "başlık / yüzey", fg: DARK_TOKENS.ink, bg: DARK_TOKENS.surface, min: AA_NORMAL },
+    { name: "ikincil / yüzey-2", fg: DARK_TOKENS.ink3, bg: DARK_TOKENS.surface2, min: AA_NORMAL },
+
+    { name: "marka bağlantı / zemin", fg: DARK_TOKENS.brand, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+    { name: "marka mürekkep / marka yumuşak", fg: DARK_TOKENS.brandInk, bg: DARK_TOKENS.brandSoft, min: AA_NORMAL },
+
+    { name: "GELİR tutarı / zemin", fg: DARK_TOKENS.income, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+    { name: "GİDER tutarı / zemin", fg: DARK_TOKENS.expense, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+    { name: "gelir / gelir yumuşak", fg: DARK_TOKENS.income, bg: DARK_TOKENS.incomeSoft, min: AA_NORMAL },
+    { name: "gider / gider yumuşak", fg: DARK_TOKENS.expense, bg: DARK_TOKENS.expenseSoft, min: AA_NORMAL },
+    { name: "gelir tutarı / yüzey", fg: DARK_TOKENS.income, bg: DARK_TOKENS.surface, min: AA_NORMAL },
+    { name: "gider tutarı / yüzey", fg: DARK_TOKENS.expense, bg: DARK_TOKENS.surface, min: AA_NORMAL },
+
+    { name: "UYARI / uyarı yumuşak", fg: DARK_TOKENS.warning, bg: DARK_TOKENS.warningSoft, min: AA_NORMAL },
+    { name: "uyarı / zemin", fg: DARK_TOKENS.warning, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+    { name: "tehlike / zemin", fg: DARK_TOKENS.danger, bg: DARK_TOKENS.bg, min: AA_NORMAL },
+  ];
+
+  for (const { name, fg, bg, min } of DARK_PAIRS) {
+    test(`${name} >= ${min}:1`, () => {
+      const ratio = contrastRatio(fg, bg);
+      expect(
+        ratio,
+        `koyu ${name}: ${ratio.toFixed(2)}:1 (en az ${min}:1 olmalı)`,
+      ).toBeGreaterThanOrEqual(min);
+    });
+  }
+
+  /**
+   * ── BUTON YAZISI ──
+   *
+   * Bu çift ilk yazıldığında ATLANMIŞTI ve gerçek bir hata kaçtı:
+   * koyu temada birincil buton beyaz yazı + açık marka rengiyle
+   * 2.52:1 veriyordu. Ekran görüntüsünde "biraz soluk" görünüyordu,
+   * ölçünce AA eşiğinin çok altındaydı.
+   *
+   * Koyu temada buton yazısı KOYU olur (zemin rengi), beyaz değil —
+   * `ui.tsx` bunu `--on-brand` token'ı üzerinden alır.
+   */
+  test("BİRİNCİL BUTON yazısı okunur (koyu tema)", () => {
+    const ratio = contrastRatio(DARK_TOKENS.onBrand, DARK_TOKENS.brand);
+    expect(
+      ratio,
+      `koyu buton yazısı: ${ratio.toFixed(2)}:1 (en az ${AA_NORMAL}:1)`,
+    ).toBeGreaterThanOrEqual(AA_NORMAL);
+  });
+
+  test("TEHLİKE BUTONU yazısı okunur (koyu tema)", () => {
+    const ratio = contrastRatio(DARK_TOKENS.onDanger, DARK_TOKENS.danger);
+    expect(
+      ratio,
+      `koyu tehlike butonu yazısı: ${ratio.toFixed(2)}:1 (en az ${AA_NORMAL}:1)`,
+    ).toBeGreaterThanOrEqual(AA_NORMAL);
+  });
+
+  /** Dinleme halindeki mikrofon düğmesi gider rengiyle dolar;
+   *  yazısı `--on-expense` üzerinden gelir, `text-white` değil. */
+  test("MİKROFON düğmesi yazısı okunur (koyu tema)", () => {
+    const ratio = contrastRatio(DARK_TOKENS.onExpense, DARK_TOKENS.expense);
+    expect(
+      ratio,
+      `koyu mikrofon yazısı: ${ratio.toFixed(2)}:1 (en az ${AA_NORMAL}:1)`,
+    ).toBeGreaterThanOrEqual(AA_NORMAL);
+  });
+
+  test("koyu zemin gerçekten koyu", () => {
+    expect(DARK_TOKENS.bg.l).toBeLessThan(0.3);
+  });
+
+  test("koyu tema açık temayla AYNI token kümesine sahip", () => {
+    // Bir token koyuda eksik kalırsa o yüzey açık temadaki değerini
+    // korur ve koyu ekranda beyaz bir leke olarak görünür.
+    expect(Object.keys(DARK_TOKENS).sort()).toEqual(Object.keys(TOKENS).sort());
+  });
+
+  test("koyu kenarlık zeminden ayırt edilebilir", () => {
+    expect(contrastRatio(DARK_TOKENS.border, DARK_TOKENS.bg)).toBeGreaterThan(1.2);
+  });
 });

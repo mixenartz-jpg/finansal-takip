@@ -29,6 +29,7 @@ interface TransactionListProps {
   accounts: readonly Account[];
   loading?: boolean;
   onDelete?: (id: string) => void;
+  onEdit?: (tx: Transaction) => void;
 }
 
 export function TransactionList({
@@ -37,6 +38,7 @@ export function TransactionList({
   accounts,
   loading,
   onDelete,
+  onEdit,
 }: TransactionListProps) {
   if (loading) {
     return (
@@ -79,6 +81,7 @@ export function TransactionList({
                     tx.counterAccountId ? accountById.get(tx.counterAccountId) : undefined
                   }
                   onDelete={onDelete}
+                  onEdit={onEdit}
                 />
               </li>
             ))}
@@ -95,12 +98,14 @@ function TransactionRow({
   account,
   counterAccount,
   onDelete,
+  onEdit,
 }: {
   tx: Transaction;
   category?: Category;
   account?: Account;
   counterAccount?: Account;
   onDelete?: (id: string) => void;
+  onEdit?: (tx: Transaction) => void;
 }) {
   const label =
     tx.kind === "transfer"
@@ -152,6 +157,17 @@ function TransactionRow({
         {formatTRYSigned(tx.amountKurus, tx.kind)}
       </p>
 
+      {onEdit && (
+        <button
+          type="button"
+          onClick={() => onEdit(tx)}
+          aria-label={`İşlemi düzenle: ${label}`}
+          className="grid size-7 shrink-0 place-items-center rounded-[var(--r-sm)] text-[var(--ink-3)] opacity-0 transition-opacity hover:text-[var(--brand)] focus-visible:opacity-100 group-hover:opacity-100"
+        >
+          <PencilGlyph />
+        </button>
+      )}
+
       {onDelete && (
         <button
           type="button"
@@ -195,6 +211,15 @@ function TrashGlyph() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
       <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    </svg>
+  );
+}
+
+function PencilGlyph() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   );
 }
