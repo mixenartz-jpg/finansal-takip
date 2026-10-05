@@ -20,16 +20,28 @@ export const MODEL_CHAIN: readonly string[] = [
 ];
 
 /**
+ * `callGemini`'nin "HTTP cevabı hiç gelmedi" için kullandığı durum.
+ *
+ * Ağ koptuğunda, DNS çözülmediğinde ya da 200 dönen cevap JSON
+ * olmadığında (proxy hata sayfası) gerçek bir durum kodu yoktur.
+ */
+export const NO_RESPONSE = 0;
+
+/**
  * Bu HTTP durumu sıradaki modeli denemeyi haklı kılar mı?
  *
- * SADECE geçici ve modele özgü hatalar:
+ * SADECE geçici hatalar:
  *   - 429: bu modelin kotası doldu, diğerinin kotası ayrı.
  *   - 5xx: Google tarafında geçici sorun.
+ *   - 0  : cevap hiç gelmedi (ağ koptu, bozuk gövde). Geçici bir
+ *          kesinti olabilir; ikinci bir deneme ucuz ve sık işe
+ *          yarıyor. Bunu dışarıda bırakmak, tek bir ağ titremesinde
+ *          zincirin ilk modelde durması demekti.
  *
  * Kalıcı hatalar zinciri İLERLETMEZ. Geçersiz anahtar (401/403) ya
  * da bozuk istek (400) her modelde aynı sonucu verir; beş kez
  * denemek yalnızca kullanıcıyı bekletir ve gerçek sebebi gizler.
  */
 export function shouldFallback(status: number): boolean {
-  return status === 429 || status >= 500;
+  return status === NO_RESPONSE || status === 429 || status >= 500;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { MODEL_CHAIN, shouldFallback } from "./models";
+import { MODEL_CHAIN, NO_RESPONSE, shouldFallback } from "./models";
 
 /**
  * Model zinciri POLİTİKASI.
@@ -42,6 +42,20 @@ describe("shouldFallback -- ★ hangi hata zinciri ilerletir", () => {
     for (const s of [500, 502, 503, 504]) {
       expect(shouldFallback(s), `${s} düşmedi`).toBe(true);
     }
+  });
+
+  /**
+   * ── CEVAP HİÇ GELMEDİ (0) ──
+   *
+   * Ağ koptuğunda `callGemini` durum 0 döner. Bu GEÇİCİ bir hata:
+   * ikinci deneme ucuz ve sık işe yarıyor. Dışarıda bırakılınca
+   * tek bir ağ titremesi zinciri ilk modelde durduruyordu —
+   * `chain.test.ts`'teki "ağ kopması da düşürür" testi bunu
+   * yakaladı.
+   */
+  test("★ cevap gelmemesi (0) düşer", () => {
+    expect(shouldFallback(NO_RESPONSE)).toBe(true);
+    expect(shouldFallback(0)).toBe(true);
   });
 
   /**
