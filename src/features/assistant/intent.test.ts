@@ -164,61 +164,74 @@ describe("parseIntent -- ★ bozuk girdi REDDEDİLİR", () => {
     expect(r.error).toMatch(/eksik/i);
   });
 
-  test("id zorunlu olan araçta id yoksa reddedilir", () => {
+  test("hedefi zorunlu olan araçta hedef yoksa reddedilir", () => {
     expect(parseIntent({ name: "archiveAccount", arguments: {} }).valid).toBe(false);
     expect(parseIntent({ name: "updateTransaction", arguments: { note: "x" } }).valid).toBe(
       false,
     );
   });
 
-  test("boş string id reddedilir", () => {
-    expect(parseIntent({ name: "archiveAccount", arguments: { id: "   " } }).valid).toBe(
-      false,
-    );
+  test("boş string hedef reddedilir", () => {
+    expect(
+      parseIntent({ name: "archiveAccount", arguments: { accountName: "   " } }).valid,
+    ).toBe(false);
   });
 });
 
-describe("parseIntent -- ★ toplu işlem sınırı", () => {
-  const ids = (n: number) => Array.from({ length: n }, (_, i) => `id-${i}`);
+describe("parseIntent -- dizi alanları", () => {
+  const words = (n: number) => Array.from({ length: n }, (_, i) => `k${i}`);
+  const cat = (keywords: unknown) =>
+    parseIntent({ name: "createCategory", arguments: { name: "Yemek", kind: "expense", keywords } });
 
-  test("sınır içindeki silme kabul edilir", () => {
-    const r = parseIntent({ name: "deleteTransaction", arguments: { ids: ids(MAX_BATCH) } });
-    expect(r.valid).toBe(true);
+  test("sınır içindeki liste kabul edilir", () => {
+    expect(cat(words(MAX_BATCH)).valid).toBe(true);
   });
 
-  /**
-   * Gemini "geçen ay" yerine "geçen yıl" anlarsa 400 kayıtlık silme
-   * niyeti üretebilir. 400 satırlık onay kartı okunmaz; kullanıcı
-   * körlemesine onaylar ve koruma ortadan kalkar. Sınır tam bu
-   * senaryo için var.
-   */
   test("sınır aşılırsa reddedilir ve sayı mesajda geçer", () => {
-    const r = parseIntent({
-      name: "deleteTransaction",
-      arguments: { ids: ids(MAX_BATCH + 1) },
-    });
+    const r = cat(words(MAX_BATCH + 1));
     expect(r.valid).toBe(false);
     if (r.valid) return;
     expect(r.error).toContain(String(MAX_BATCH + 1));
-    expect(r.error).toMatch(/daralt|geniş/i);
   });
 
-  test("boş ids reddedilir", () => {
-    expect(parseIntent({ name: "deleteTransaction", arguments: { ids: [] } }).valid).toBe(
-      false,
-    );
+  test("boş liste reddedilir", () => {
+    expect(cat([]).valid).toBe(false);
   });
 
-  test("ids dizi değilse reddedilir", () => {
-    expect(parseIntent({ name: "deleteTransaction", arguments: { ids: "hepsi" } }).valid).toBe(
-      false,
-    );
+  test("dizi değilse reddedilir", () => {
+    expect(cat("hepsi").valid).toBe(false);
   });
 
-  test("ids içinde string olmayan varsa reddedilir", () => {
-    expect(
-      parseIntent({ name: "deleteTransaction", arguments: { ids: ["a", 5] } }).valid,
-    ).toBe(false);
+  test("string olmayan öğe varsa reddedilir", () => {
+    expect(cat(["a", 5]).valid).toBe(false);
+  });
+});
+
+describe("parseIntent -- ★ hedef tarifi", () => {
+  test("silme tarifle kabul edilir", () => {
+    const r = parseIntent({
+      name: "deleteTransaction",
+      arguments: { matchFrom: "2026-10-04", matchTo: "2026-10-04", matchCategoryName: "Market" },
+    });
+    expect(r.valid).toBe(true);
+  });
+
+  test("tarif tarihi geçersizse reddedilir", () => {
+    const r = parseIntent({
+      name: "deleteTransaction",
+      arguments: { matchFrom: "2026-02-31", matchTo: "2026-03-01" },
+    });
+    expect(r.valid).toBe(false);
+  });
+
+  test("model kimlik uydurursa alan ATILIR", () => {
+    const r = parseIntent({
+      name: "deleteTransaction",
+      arguments: { matchFrom: "2026-10-04", matchTo: "2026-10-04", ids: ["uydurma"] },
+    });
+    expect(r.valid).toBe(true);
+    if (!r.valid) return;
+    expect(r.intent.args).not.toHaveProperty("ids");
   });
 });
 

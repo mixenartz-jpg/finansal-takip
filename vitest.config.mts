@@ -45,6 +45,9 @@ export default defineConfig({
         "src/features/assistant/conversation.ts",
         "src/features/assistant/to-write.ts",
         "src/features/assistant/read-tools.ts",
+        // Kayit secicisi: kimliksiz hedef bulma ve guncelleme cevirileri.
+        "src/features/assistant/targets.ts",
+        "src/features/assistant/to-update.ts",
       ],
       // Arayuz tanimlari ve veri sozlukleri: calistirilabilir dal yok,
       // kapsam yuzdesini sulandirirlar.

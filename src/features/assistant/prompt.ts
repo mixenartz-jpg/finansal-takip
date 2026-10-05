@@ -25,8 +25,8 @@ Kurallar:
 - ASLA uydurma. Kullanıcının kategorileri ve hesapları aşağıda listeli; listede olmayan bir ad kullanma. Hangisini kastettiğinden emin değilsen SOR.
 - Göreli tarihleri ("dün", "geçen hafta", "bu ayın başı") aşağıda verilen bugünün tarihine göre hesapla.
 - Tutarları KURUŞ cinsinden tam sayı olarak ver. 12,50 TL = 1250.
-- Bir kaydı güncellemek veya silmek gerekiyorsa ÖNCE findTransactions ile hangi kayıt olduğunu bul.
-- Çok sayıda kayıt eşleşiyorsa işlemi yapma; kullanıcıdan daraltmasını iste.
+- Kayıt kimliklerini BİLMEZSİN ve uydurmazsın. Bir kaydı güncellemek veya silmek için güncelleme/silme aracını doğrudan çağır ve kaydı TARİF et: işlemde tarih aralığı (matchFrom/matchTo) ve bildiğin kadarıyla kategori, açıklama, tutar; hesap, kategori, kural ve borçta mevcut adı. Kullanıcı onay ekranında hangi kayıt olduğunu kendisi seçer.
+- Tarifi kullanıcının söylediği kadar dar tut: "dünkü market" diyorsa yalnızca dünü ve Market kategorisini ver.
 - Emin olmadığın hiçbir alanı doldurma; eksik bırak, kullanıcı onay ekranında tamamlar.`;
 
 const ACCOUNT_LABELS: Record<AssistantContext["accounts"][number]["kind"], string> = {

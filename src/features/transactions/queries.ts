@@ -46,10 +46,15 @@ async function fetchRecent(limit: number): Promise<Transaction[]> {
   return (data as unknown as TransactionRow[]).map(toTransaction);
 }
 
-export function useTransactionsRange(from: DateStr, to: DateStr) {
+export function useTransactionsRange(
+  from: DateStr,
+  to: DateStr,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: qk.transactionsRange(from, to),
     queryFn: () => fetchRange(from, to),
+    enabled,
   });
 }
 

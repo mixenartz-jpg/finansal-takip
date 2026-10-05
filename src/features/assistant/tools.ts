@@ -53,11 +53,37 @@ const DATE = {
   description: "Tarih, 'YYYY-MM-DD' biçiminde.",
 } as const;
 
-const ID = (what: string) =>
-  ({
-    type: "string",
-    description: `${what} kimliği (bağlamda verilen listeden alınır).`,
-  }) as const;
+/*
+ * ── HEDEF KAYIT: KİMLİK DEĞİL, TARİF ──
+ *
+ * Güncelleme/silme araçları kayıt KİMLİĞİ istemez. Modele hiçbir
+ * kimlik gönderilmiyor; isteseydik ancak uydurabilirdi. Bunun
+ * yerine model kaydı TARİF eder (tarih aralığı, kategori, ad...) ve
+ * istemci adayları kendi önbelleğinden bulur. Kullanıcı onay
+ * kartında hangi kayıt olduğunu KENDİSİ seçer; kimlik tarayıcıdan
+ * hiç çıkmaz.
+ */
+const MATCH_FROM = {
+  type: "string",
+  description: "Aranacak kaydın tarih aralığı başı, 'YYYY-MM-DD'.",
+} as const;
+
+const MATCH_TO = {
+  type: "string",
+  description: "Aranacak kaydın tarih aralığı sonu, 'YYYY-MM-DD'. Tek gün için matchFrom ile aynı.",
+} as const;
+
+/** İşlemi tarif eden alanlar — update/deleteTransaction ortak. */
+const TX_MATCH = {
+  matchFrom: MATCH_FROM,
+  matchTo: MATCH_TO,
+  matchCategoryName: { type: "string", description: "Aranacak kaydın kategori adı." },
+  matchNote: { type: "string", description: "Aranacak kaydın açıklamasında geçen metin." },
+  matchAmountKurus: {
+    type: "integer",
+    description: "Aranacak kaydın tutarı, kuruş. Biliniyorsa daraltmak için.",
+  },
+} as const;
 
 export const TOOLS: readonly ToolDefinition[] = [
   // ─────────────────────── Okuma ───────────────────────
@@ -111,7 +137,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     type: "function",
     name: "findTransactions",
     description:
-      "Tarih aralığına ve isteğe bağlı kategoriye göre işlemleri listeler. Güncelleme veya silme niyetinden ÖNCE hangi kaydın kastedildiğini bulmak için kullanılır.",
+      "Tarih aralığına ve isteğe bağlı kategoriye göre işlemleri listeler. 'Geçen hafta neye harcadım' gibi sorular için. Güncelleme/silme için GEREKMEZ: o araçlar kaydı kendileri tarif eder.",
     parameters: {
       type: "object",
       properties: {
@@ -157,11 +183,11 @@ export const TOOLS: readonly ToolDefinition[] = [
     type: "function",
     name: "updateTransaction",
     description:
-      "Var olan bir işlemi günceller. Yalnızca değişecek alanlar verilir; verilmeyen alanlar olduğu gibi kalır.",
+      "Var olan bir işlemi günceller. Kayıt match* alanlarıyla TARİF edilir; kullanıcı onay ekranında hangisi olduğunu seçer. Yalnızca değişecek alanlar verilir; verilmeyen alanlar olduğu gibi kalır.",
     parameters: {
       type: "object",
       properties: {
-        id: ID("İşlem"),
+        ...TX_MATCH,
         kind: { type: "string", enum: ["income", "expense", "transfer"] },
         amountKurus: AMOUNT,
         date: DATE,
@@ -170,23 +196,18 @@ export const TOOLS: readonly ToolDefinition[] = [
         categoryName: { type: "string" },
         note: { type: "string" },
       },
-      required: ["id"],
+      required: ["matchFrom", "matchTo"],
     },
   },
   {
     type: "function",
     name: "deleteTransaction",
-    description: "Bir veya daha fazla işlemi siler.",
+    description:
+      "Bir veya daha fazla işlemi siler. Kayıtlar match* alanlarıyla TARİF edilir; kullanıcı onay ekranında hangilerinin silineceğini seçer.",
     parameters: {
       type: "object",
-      properties: {
-        ids: {
-          type: "array",
-          items: { type: "string" },
-          description: "Silinecek işlemlerin kimlikleri.",
-        },
-      },
-      required: ["ids"],
+      properties: { ...TX_MATCH },
+      required: ["matchFrom", "matchTo"],
     },
   },
 
@@ -223,11 +244,11 @@ export const TOOLS: readonly ToolDefinition[] = [
     parameters: {
       type: "object",
       properties: {
-        id: ID("Hesap"),
-        name: { type: "string" },
-        creditLimitKurus: AMOUNT,
+        accountName: { type: "string", description: "Güncellenecek hesabın ŞU ANKİ adı." },
+        name: { type: "string", description: "Yeni ad." },
+        creditLimitKurus: { ...AMOUNT, description: "Yeni kredi limiti. YALNIZCA kredi kartında." },
       },
-      required: ["id"],
+      required: ["accountName"],
     },
   },
   {
@@ -271,11 +292,15 @@ export const TOOLS: readonly ToolDefinition[] = [
     parameters: {
       type: "object",
       properties: {
-        id: ID("Kategori"),
-        name: { type: "string" },
-        keywords: { type: "array", items: { type: "string" } },
+        categoryName: { type: "string", description: "Güncellenecek kategorinin ŞU ANKİ adı." },
+        name: { type: "string", description: "Yeni ad." },
+        keywords: {
+          type: "array",
+          items: { type: "string" },
+          description: "Yeni anahtar kelime listesi (eskisinin yerine geçer).",
+        },
       },
-      required: ["id"],
+      required: ["categoryName"],
     },
   },
 
@@ -349,12 +374,12 @@ export const TOOLS: readonly ToolDefinition[] = [
     parameters: {
       type: "object",
       properties: {
-        id: ID("Kural"),
-        name: { type: "string" },
+        ruleName: { type: "string", description: "Güncellenecek kuralın ŞU ANKİ adı." },
+        name: { type: "string", description: "Yeni ad." },
         amountKurus: AMOUNT,
         dayOf: { type: "integer", description: "Dönem içindeki gün (1-31)." },
       },
-      required: ["id"],
+      required: ["ruleName"],
     },
   },
   {
@@ -363,8 +388,8 @@ export const TOOLS: readonly ToolDefinition[] = [
     description: "Düzenli ödeme kuralını siler.",
     parameters: {
       type: "object",
-      properties: { id: ID("Kural") },
-      required: ["id"],
+      properties: { ruleName: { type: "string", description: "Silinecek kuralın adı." } },
+      required: ["ruleName"],
     },
   },
 
@@ -398,26 +423,31 @@ export const TOOLS: readonly ToolDefinition[] = [
     parameters: {
       type: "object",
       properties: {
-        id: ID("Borç"),
-        counterparty: { type: "string" },
-        amountKurus: AMOUNT,
+        debtCounterparty: {
+          type: "string",
+          description: "Güncellenecek borcun ŞU ANKİ kişi/kurum adı.",
+        },
+        counterparty: { type: "string", description: "Yeni kişi/kurum adı." },
+        amountKurus: { ...AMOUNT, description: "Yeni anapara, kuruş." },
         dueDate: DATE,
       },
-      required: ["id"],
+      required: ["debtCounterparty"],
     },
   },
   {
     type: "function",
     name: "addDebtPayment",
-    description: "Bir borca ödeme ekler (kısmi ödeme olabilir).",
+    description:
+      "Bir borca ödeme ekler (kısmi ödeme olabilir). Ödeme bir hesaptan yapıldıysa accountName verilir ve hesap bakiyesi de değişir; verilmezse yalnızca borç defteri güncellenir.",
     parameters: {
       type: "object",
       properties: {
-        debtId: ID("Borç"),
+        debtCounterparty: { type: "string", description: "Borcun kişi/kurum adı." },
         amountKurus: AMOUNT,
         date: DATE,
+        accountName: { type: "string", description: "Ödemenin yapıldığı hesap adı." },
       },
-      required: ["debtId", "amountKurus"],
+      required: ["debtCounterparty", "amountKurus"],
     },
   },
 ];

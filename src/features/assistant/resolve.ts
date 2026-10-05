@@ -35,7 +35,7 @@ export type ResolveResult = { ok: true; id: string } | { ok: false; error: strin
  * yazdığında ("ULAŞIM") kayıtlı "Ulaşım" ile eşleşmez ve kategori
  * bulunamaz — sebebi de hiçbir yerde görünmez.
  */
-function trLower(s: string): string {
+export function trLower(s: string): string {
   return s.trim().toLocaleLowerCase("tr");
 }
 

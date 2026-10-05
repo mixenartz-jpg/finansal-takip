@@ -1,9 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui";
 import { formatTRY } from "@/lib/money/money";
 import type { Kurus } from "@/lib/money/types";
+import { isDateStr } from "@/lib/date/date";
+import { formatLongDate } from "@/lib/ui/tr";
 import type { PendingAction } from "./conversation";
+import { initialSelection, targetSpec, toggleSelection } from "./targets";
+import { TargetPicker, useTargetCandidates, type Target } from "./TargetPicker";
 
 /**
  * Asistanın önerdiği eylemin onay kartı.
@@ -23,9 +28,12 @@ import type { PendingAction } from "./conversation";
  */
 
 interface ActionCardProps {
+  /** Mesaj kimliği — seçicinin radyo grubu adı için. */
+  id: string;
   action: PendingAction;
   saving: boolean;
-  onConfirm: () => void;
+  /** Hedef seçen araçlarda seçilen kayıtlarla, diğerlerinde boş dizi ile çağrılır. */
+  onConfirm: (targets: Target[]) => void;
   onCancel: () => void;
 }
 
@@ -83,9 +91,12 @@ const ARG_LABELS: Record<string, string> = {
   freq: "Sıklık",
   dayOf: "Gün",
   monthOf: "Ay",
-  ids: "Kayıtlar",
-  id: "Kayıt",
-  debtId: "Borç",
+  // Hedef tarifi — "Aranan" başlığı altında gösterilir.
+  matchCategoryName: "Kategori",
+  matchNote: "Açıklama",
+  matchAmountKurus: "Tutar",
+  ruleName: "Kural",
+  debtCounterparty: "Kişi/kurum",
 };
 
 const FREQ_LABELS: Record<string, string> = {
@@ -99,17 +110,8 @@ const DIRECTION_LABELS: Record<string, string> = {
   receivable: "Bana borçlu",
 };
 
-/**
- * Argüman değerini okunur metne çevirir.
- *
- * Kimlikler GÖSTERİLMEZ: kullanıcıya UUID göstermek bilgi değil
- * gürültüdür. Kimlik taşıyan alanlar sayı olarak özetleniyor.
- */
+/** Argüman değerini okunur metne çevirir. */
 function formatValue(key: string, value: unknown): string | null {
-  if (key === "id" || key === "debtId") return null;
-  if (key === "ids") {
-    return Array.isArray(value) ? `${value.length} kayıt` : null;
-  }
   if (key.endsWith("Kurus")) {
     return typeof value === "number" ? formatTRY(value as Kurus) : null;
   }
@@ -120,13 +122,62 @@ function formatValue(key: string, value: unknown): string | null {
   return String(value);
 }
 
-export function ActionCard({ action, saving, onConfirm, onCancel }: ActionCardProps) {
+interface Row {
+  key: string;
+  label: string;
+  text: string;
+}
+
+function toRows(entries: [string, unknown][]): Row[] {
+  return entries
+    .map(([key, value]) => ({ key, label: ARG_LABELS[key] ?? key, text: formatValue(key, value) }))
+    .filter((r): r is Row => r.text !== null);
+}
+
+/** Tarif tarih aralığı tek satır: "Dün" ya da "1 Ekim – 4 Ekim". */
+function rangeText(from: unknown, to: unknown): string | null {
+  if (typeof from !== "string" || typeof to !== "string") return null;
+  if (!isDateStr(from) || !isDateStr(to)) return null;
+  return from === to ? formatLongDate(from) : `${formatLongDate(from)} – ${formatLongDate(to)}`;
+}
+
+export function ActionCard({ id, action, saving, onConfirm, onCancel }: ActionCardProps) {
   const { intent, status } = action;
   const title = TOOL_LABELS[intent.name] ?? intent.name;
+  const spec = targetSpec(intent.name);
+  const targets = useTargetCandidates(intent, spec);
 
-  const rows = Object.entries(intent.args)
-    .map(([key, value]) => ({ key, label: ARG_LABELS[key] ?? key, text: formatValue(key, value) }))
-    .filter((r): r is { key: string; label: string; text: string } => r.text !== null);
+  /*
+   * ── SEÇİM TÜRETİLMİŞ STATE ──
+   *
+   * Kullanıcı dokunana kadar `picked` null kalır ve seçim adaylardan
+   * türetilir (tek aday → seçili). Adaylar yüklenince efektle state
+   * yazmak gerekmiyor; ilk dokunuşta türetilen değer kopyalanıp
+   * değiştiriliyor.
+   */
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const selected = picked ?? initialSelection(targets.candidates);
+  const chosen = targets.candidates.filter((t) => selected.includes(t.id));
+
+  const matchKeys = spec?.matchKeys ?? [];
+  const matchRows = toRows(
+    Object.entries(intent.args).filter(
+      ([k]) => matchKeys.includes(k) && k !== "matchFrom" && k !== "matchTo",
+    ),
+  );
+  const range = rangeText(intent.args.matchFrom, intent.args.matchTo);
+  if (range) matchRows.unshift({ key: "matchRange", label: "Tarih", text: range });
+
+  const rows = toRows(Object.entries(intent.args).filter(([k]) => !matchKeys.includes(k)));
+
+  /*
+   * Güncelleme aracı yeni değer taşımıyorsa onaylanacak bir şey yok:
+   * aynı veriyi yazmak "uygulandı" der ama hiçbir şey değişmez.
+   */
+  const needsChanges = intent.name.startsWith("update");
+  const nothingToShow = needsChanges ? rows.length === 0 : rows.length + matchRows.length === 0;
+  const blocked =
+    nothingToShow || (spec !== null && (targets.loading || targets.problem !== null || chosen.length === 0));
 
   return (
     <div className="rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--surface)] p-3">
@@ -135,49 +186,67 @@ export function ActionCard({ action, saving, onConfirm, onCancel }: ActionCardPr
       {/*
         ── GÖRÜNÜR SATIR YOKSA ──
 
-        Kimlikler gizleniyor (UUID kullanıcıya bilgi değil gürültü).
-        Ama `updateTransaction` gibi yalnızca `id` taşıyan bir
-        niyette hiçbir satır kalmıyordu: başlık + "Onayla" düğmesi,
-        arada NE DEĞİŞECEĞİ belirsiz. Hiçbir şey göstermeyen bir
-        onay ekranı, onay almıyor demektir.
+        Güncelleme niyeti yalnızca hedefi tarif edip yeni değer
+        taşımıyorsa başlık + "Onayla" düğmesi kalırdı, arada NE
+        DEĞİŞECEĞİ belirsiz. Hiçbir şey göstermeyen bir onay ekranı,
+        onay almıyor demektir.
       */}
-      {rows.length === 0 && (
+      {nothingToShow && (
         <p className="mt-2 text-[13px] text-[var(--warning)]">
-          Ne değişeceğini gösteremiyorum — bunu ilgili sayfadan elle yapman daha güvenli.
+          {needsChanges
+            ? "Neyin değişeceğini anlayamadım — yeni değeri söyler misin?"
+            : "Ne değişeceğini gösteremiyorum — bunu ilgili sayfadan elle yapman daha güvenli."}
         </p>
       )}
 
+      {matchRows.length > 0 && (
+        <>
+          <p className="mt-2 text-[12px] font-medium uppercase tracking-wide text-[var(--ink-3)]">
+            Aranan
+          </p>
+          <ArgList rows={matchRows} />
+        </>
+      )}
+
       {rows.length > 0 && (
-        <dl className="mt-2 flex flex-col gap-1">
-          {rows.map((r) => (
-            <div key={r.key} className="flex items-baseline justify-between gap-3 text-[13px]">
-              <dt className="shrink-0 text-[var(--ink-3)]">{r.label}</dt>
-              {/* Tutarlar tabular rakam taşır: sayılar hizalı okunur. */}
-              <dd
-                className={[
-                  "min-w-0 text-right text-[var(--ink-2)]",
-                  r.key.endsWith("Kurus") ? "tnum font-medium text-[var(--ink)]" : "",
-                ].join(" ")}
-              >
-                {r.text}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <>
+          {matchRows.length > 0 && (
+            <p className="mt-2 text-[12px] font-medium uppercase tracking-wide text-[var(--ink-3)]">
+              {needsChanges ? "Yeni değerler" : "Ayrıntılar"}
+            </p>
+          )}
+          <ArgList rows={rows} />
+        </>
+      )}
+
+      {spec && status === "pending" && (
+        <TargetPicker
+          name={`hedef-${id}`}
+          spec={spec}
+          state={targets}
+          selected={selected}
+          disabled={saving}
+          onToggle={(targetId) => setPicked(toggleSelection(selected, targetId, spec.multi))}
+        />
       )}
 
       {status === "pending" && (
         <div className="mt-3 flex gap-2">
           <Button
             variant={intent.name.startsWith("delete") ? "danger" : "primary"}
-            onClick={onConfirm}
+            onClick={() => onConfirm(chosen)}
             loading={saving}
-            // Gösterilecek hiçbir alan yoksa onay istenmez: kullanıcı
-            // ne onayladığını bilmeden düğmeye basmamalı.
-            disabled={rows.length === 0}
+            // Gösterilecek hiçbir alan yoksa ya da hedef kayıt
+            // seçilmediyse onay istenmez: kullanıcı ne onayladığını
+            // bilmeden düğmeye basmamalı.
+            disabled={blocked}
             full
           >
-            {intent.needsConfirm ? "Onayla" : "Uygula"}
+            {spec?.multi && chosen.length > 1
+              ? `${chosen.length} kaydı onayla`
+              : intent.needsConfirm
+                ? "Onayla"
+                : "Uygula"}
           </Button>
           <Button variant="ghost" onClick={onCancel} disabled={saving}>
             Vazgeç
@@ -203,5 +272,26 @@ export function ActionCard({ action, saving, onConfirm, onCancel }: ActionCardPr
         </p>
       )}
     </div>
+  );
+}
+
+function ArgList({ rows }: { rows: Row[] }) {
+  return (
+    <dl className="mt-1 flex flex-col gap-1">
+      {rows.map((r) => (
+        <div key={r.key} className="flex items-baseline justify-between gap-3 text-[13px]">
+          <dt className="shrink-0 text-[var(--ink-3)]">{r.label}</dt>
+          {/* Tutarlar tabular rakam taşır: sayılar hizalı okunur. */}
+          <dd
+            className={[
+              "min-w-0 text-right text-[var(--ink-2)]",
+              r.key.endsWith("Kurus") ? "tnum font-medium text-[var(--ink)]" : "",
+            ].join(" ")}
+          >
+            {r.text}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }

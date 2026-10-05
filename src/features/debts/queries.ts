@@ -67,8 +67,8 @@ async function fetchDebtBalances(): Promise<DebtBalance[]> {
   });
 }
 
-export function useDebtBalances() {
-  return useQuery({ queryKey: qk.debts(), queryFn: fetchDebtBalances });
+export function useDebtBalances({ enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({ queryKey: qk.debts(), queryFn: fetchDebtBalances, enabled });
 }
 
 async function fetchPayments(debtId: string): Promise<DebtPayment[]> {

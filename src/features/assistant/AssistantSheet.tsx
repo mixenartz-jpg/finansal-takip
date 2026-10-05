@@ -7,24 +7,33 @@ import { useCategories } from "@/features/categories/queries";
 import { useAccounts } from "@/features/accounts/queries";
 import {
   useCreateTransaction,
+  useDeleteTransaction,
   useRecentTransactions,
+  useUpdateTransaction,
 } from "@/features/transactions/queries";
 import {
   useCreateAccount,
   useArchiveAccount,
   useAccountsWithBalances,
+  useUpdateAccount,
 } from "@/features/accounts/queries";
-import { useCreateCategory } from "@/features/categories/queries";
+import { useCreateCategory, useUpdateCategory } from "@/features/categories/queries";
 import {
   useUpsertBudget,
   useDeleteBudget,
   useBudgetProgress,
 } from "@/features/budgets/queries";
-import { useCreateDebt, useDebtBalances } from "@/features/debts/queries";
-import { useCreateRule, useDeleteRule } from "@/features/recurring/queries";
+import {
+  useAddPayment,
+  useCreateDebt,
+  useDebtBalances,
+  useUpdateDebt,
+} from "@/features/debts/queries";
+import { useCreateRule, useDeleteRule, useUpdateRule } from "@/features/recurring/queries";
 import { todayStr, startOfMonth } from "@/lib/date/date";
 import { Button } from "@/components/ui";
 import { ActionCard } from "./ActionCard";
+import type { Target } from "./TargetPicker";
 import { intentToTransactionInput } from "./to-input";
 import {
   resolveTargetId,
@@ -34,6 +43,14 @@ import {
   intentToDebtInput,
   intentToRecurringInput,
 } from "./to-write";
+import {
+  intentToAccountUpdate,
+  intentToCategoryPatch,
+  intentToDebtUpdate,
+  intentToPaymentInput,
+  intentToRuleUpdate,
+  intentToTransactionPatch,
+} from "./to-update";
 import { draftToIntent } from "./local-first";
 import { createParser } from "@/features/parser";
 import {
@@ -82,6 +99,17 @@ interface ChatResponse {
  */
 const parser = createParser();
 
+const NO_TARGET = "Hangi kaydı kastettiğini seçmedin.";
+
+/** Seçilen hedefler arasından istenen türden TEK kaydı döndürür. */
+function pick<K extends Target["type"]>(
+  targets: readonly Target[],
+  type: K,
+): Extract<Target, { type: K }> | null {
+  const matches = targets.filter((t): t is Extract<Target, { type: K }> => t.type === type);
+  return matches.length === 1 ? matches[0] : null;
+}
+
 export function AssistantSheet({ onClose }: { onClose: () => void }) {
   const categories = useCategories();
   const accounts = useAccounts();
@@ -94,6 +122,13 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
   const createDebt = useCreateDebt();
   const createRule = useCreateRule();
   const deleteRule = useDeleteRule();
+  const updateTransaction = useUpdateTransaction();
+  const deleteTransaction = useDeleteTransaction();
+  const updateAccount = useUpdateAccount();
+  const updateCategory = useUpdateCategory();
+  const updateRule = useUpdateRule();
+  const updateDebt = useUpdateDebt();
+  const addPayment = useAddPayment();
 
   /*
    * ── OKUMA ARACI VERİSİ ──
@@ -279,7 +314,7 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
     }
   }
 
-  function handleConfirm(messageId: string, intent: Intent) {
+  function handleConfirm(messageId: string, intent: Intent, targets: Target[]) {
     /*
      * ── ÇİFT KAYIT KORUMASI ──
      *
@@ -376,28 +411,98 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
         return createRule.mutate(r.input, handlers);
       }
 
-      case "deleteRecurringRule":
-        return deleteRule.mutate(String(args.id), handlers);
-
       /*
-       * ── BAĞLANMAYAN ARAÇLAR ──
+       * ── HEDEF SEÇEN ARAÇLAR ──
        *
-       * Güncelleme ve silme araçları (updateTransaction,
-       * deleteTransaction, updateAccount, updateCategory,
-       * updateDebt, updateRecurringRule, addDebtPayment) HANGİ
-       * KAYIT olduğunu bilmeyi gerektiriyor. Model yalnızca ad
-       * görüyor, kimlik görmüyor; kimliği bulmak için önce
-       * `findTransactions` turunun çalışması gerek — o da ikinci
-       * tur (`function_result`) demek.
-       *
-       * Uydurma bir kimlikle devam etmek YANLIŞ KAYDI silmek
-       * olurdu. Bu yüzden sessizce geçmiyor, kullanıcıya ne
-       * yapacağı söyleniyor.
+       * Kaydı model tarif etti, kullanıcı onay kartında SEÇTİ
+       * (`TargetPicker`). Kimlik modelden gelmiyor; burada yalnızca
+       * kullanıcının seçtiği kaydın kimliği kullanılıyor. Seçim
+       * boşsa kart onay düğmesini zaten kapatıyor — `pick` yine de
+       * savunma olarak denetliyor.
        */
-      default:
-        return fail(
-          "Bunu henüz uygulayamıyorum — hangi kaydı kastettiğini güvenle bulamıyorum. İlgili sayfadan elle yapabilirsin.",
+      case "updateTransaction": {
+        const t = pick(targets, "transaction");
+        if (!t) return fail(NO_TARGET);
+        const r = intentToTransactionPatch(args, t.record, { categories: cats, accounts: accs });
+        if (!r.ok) return fail(r.error);
+        return updateTransaction.mutate({ id: t.id, patch: r.input }, handlers);
+      }
+
+      case "deleteTransaction": {
+        const ids = targets.filter((t) => t.type === "transaction").map((t) => t.id);
+        if (ids.length === 0) return fail(NO_TARGET);
+        /*
+         * Hook tek kayıt siliyor; toplu silme paralel çağrı. Biri
+         * düşerse kaç tanesinin silindiği SÖYLENİR — "silinemedi"
+         * demek, aslında silinmiş kayıtları gizlerdi.
+         */
+        void Promise.allSettled(ids.map((id) => deleteTransaction.mutateAsync(id))).then(
+          (results) => {
+            const failed = results.filter((x) => x.status === "rejected");
+            if (failed.length === 0) return handlers.onSuccess();
+            const reason = (failed[0] as PromiseRejectedResult).reason;
+            const why = reason instanceof Error ? reason.message : "İşlem silinemedi";
+            const done = ids.length - failed.length;
+            fail(done > 0 ? `${done}/${ids.length} kayıt silindi. Kalanlar: ${why}` : why);
+          },
         );
+        return;
+      }
+
+      case "updateAccount": {
+        const t = pick(targets, "account");
+        if (!t) return fail(NO_TARGET);
+        const r = intentToAccountUpdate(args, t.record);
+        if (!r.ok) return fail(r.error);
+        return updateAccount.mutate({ id: t.id, input: r.input }, handlers);
+      }
+
+      case "updateCategory": {
+        const t = pick(targets, "category");
+        if (!t) return fail(NO_TARGET);
+        const r = intentToCategoryPatch(args, t.record);
+        if (!r.ok) return fail(r.error);
+        return updateCategory.mutate({ id: t.id, patch: r.input }, handlers);
+      }
+
+      case "updateRecurringRule": {
+        const t = pick(targets, "rule");
+        if (!t) return fail(NO_TARGET);
+        const r = intentToRuleUpdate(args, t.record);
+        if (!r.ok) return fail(r.error);
+        return updateRule.mutate({ id: t.id, input: r.input }, handlers);
+      }
+
+      case "deleteRecurringRule": {
+        // Eskiden `String(args.id)` ile bağlıydı: modele kimlik
+        // gitmediği için o kimlik ancak uydurma olabilirdi ve silme
+        // sıfır satır etkileyip "uygulandı" diyordu.
+        const t = pick(targets, "rule");
+        if (!t) return fail(NO_TARGET);
+        return deleteRule.mutate(t.id, handlers);
+      }
+
+      case "updateDebt": {
+        const t = pick(targets, "debt");
+        if (!t) return fail(NO_TARGET);
+        const r = intentToDebtUpdate(args, t.record);
+        if (!r.ok) return fail(r.error);
+        return updateDebt.mutate({ id: t.id, input: r.input }, handlers);
+      }
+
+      case "addDebtPayment": {
+        const t = pick(targets, "debt");
+        if (!t) return fail(NO_TARGET);
+        const r = intentToPaymentInput(args, t.record, accs, today);
+        if (!r.ok) return fail(r.error);
+        return addPayment.mutate(
+          { input: r.input, direction: t.record.direction, counterparty: t.record.counterparty },
+          handlers,
+        );
+      }
+
+      default:
+        return fail("Bunu henüz uygulayamıyorum. İlgili sayfadan elle yapabilirsin.");
     }
   }
 
@@ -429,9 +534,10 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
               <li key={m.id}>
                 {m.action ? (
                   <ActionCard
+                    id={m.id}
                     action={m.action}
                     saving={savingId === m.id}
-                    onConfirm={() => handleConfirm(m.id, m.action!.intent)}
+                    onConfirm={(targets) => handleConfirm(m.id, m.action!.intent, targets)}
                     onCancel={() =>
                       setConversation((c) => resolveAction(c, m.id, "cancelled"))
                     }

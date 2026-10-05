@@ -30,8 +30,8 @@ async function fetchRules(): Promise<RecurringRule[]> {
   return (data as unknown as RecurringRuleRow[]).map(toRecurringRule);
 }
 
-export function useRecurringRules() {
-  return useQuery({ queryKey: qk.recurring(), queryFn: fetchRules });
+export function useRecurringRules({ enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({ queryKey: qk.recurring(), queryFn: fetchRules, enabled });
 }
 
 export function useCreateRule() {

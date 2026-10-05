@@ -27,6 +27,16 @@ describe("SYSTEM_INSTRUCTION", () => {
     expect(SYSTEM_INSTRUCTION).toMatch(/uydur/i);
   });
 
+  /**
+   * Model kimlik görmüyor. Yönerge "önce bul, sonra kimlikle sil"
+   * derse model kimliği UYDURUR; araçlar artık kaydı tarifle alıyor.
+   */
+  test("★ güncelleme/silmede kimlik değil tarif istenir", () => {
+    expect(SYSTEM_INSTRUCTION).toMatch(/kimlik/i);
+    expect(SYSTEM_INSTRUCTION).toMatch(/TARİF/);
+    expect(SYSTEM_INSTRUCTION).not.toMatch(/ÖNCE findTransactions/);
+  });
+
   test("bugünün tarihine göre göreli tarih çözmesini söyler", () => {
     expect(SYSTEM_INSTRUCTION).toMatch(/bugün/i);
   });

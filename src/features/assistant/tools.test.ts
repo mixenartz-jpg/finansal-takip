@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { TOOLS, TOOL_NAMES, WRITE_TOOLS, isToolName } from "./tools";
+import { DATE_KEYS } from "./intent";
 
 /**
  * Araç tanımlarının ŞEMA SÖZLEŞMESİ.
@@ -119,7 +120,7 @@ describe("TOOLS -- Interactions API biçimi", () => {
  * `intent.ts` içindeki `checkArg`, alanı ADINA bakarak hangi
  * doğrulamadan geçireceğine karar veriyor; sıra şöyle:
  *
- *   *Kurus → date/from/to/dueDate → month → enum → array → integer → string
+ *   *Kurus → DATE_KEYS → month → enum → array → integer → string
  *
  * Bu konumsal if-zinciri bugün doğru çalışıyor, ama yeni bir araç
  * alanı eklendiğinde sessizce yanlış dala düşebilir. Örnek: `enum`
@@ -134,8 +135,6 @@ describe("araç alanları -- ★ checkArg dalıyla çarpışmasın", () => {
       ([key, schema]) => ({ tool: t.name, key, schema: schema as Record<string, unknown> }),
     ),
   );
-
-  const DATE_KEYS = ["date", "from", "to", "dueDate"];
 
   test("adı *Kurus ile biten her alan gerçekten tutar (integer)", () => {
     for (const p of allProps.filter((p) => p.key.endsWith("Kurus"))) {
@@ -163,6 +162,25 @@ describe("araç alanları -- ★ checkArg dalıyla çarpışmasın", () => {
     for (const p of allProps.filter((p) => p.schema.type === "array")) {
       expect(DATE_KEYS, `${p.tool}.${p.key}`).not.toContain(p.key);
       expect(p.key.endsWith("Kurus"), `${p.tool}.${p.key}`).toBe(false);
+    }
+  });
+});
+
+/**
+ * ── ★ KİMLİK ALANI YOK ──
+ *
+ * Modele hiçbir kimlik gönderilmiyor; bir araç kimlik isterse model
+ * onu ancak UYDURUR. Uydurma kimlikle `.eq("id", ...)` sıfır satır
+ * etkiler ve kullanıcı "oldu" görür ama hiçbir şey olmaz. Bu yüzden
+ * hiçbir araç alanı kimlik adı taşıyamaz — hedef kayıt tarif edilir,
+ * kullanıcı onay kartında seçer.
+ */
+describe("araç alanları -- ★ kimlik istenmez", () => {
+  test("hiçbir alan id/ids/*Id adı taşımaz", () => {
+    for (const t of TOOLS) {
+      for (const key of Object.keys(t.parameters.properties)) {
+        expect(key, `${t.name}.${key} kimlik istiyor`).not.toMatch(/^(id|ids)$|Ids?$/);
+      }
     }
   });
 });

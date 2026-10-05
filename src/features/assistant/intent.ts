@@ -11,7 +11,13 @@ import { TOOLS, isToolName, isWriteTool, type ToolDefinition } from "./tools";
  * "bunu anlayamadım, şöyle söyle" görmeli.
  */
 
-/** Tek onayda işlenebilecek en fazla kayıt. */
+/**
+ * Tek onayda işlenebilecek en fazla kayıt.
+ *
+ * Silme artık kimlik listesi değil tarif taşıyor; sınır onay
+ * kartındaki seçicide (`targets.ts`) uygulanıyor. Dizi alanları
+ * (anahtar kelimeler) da aynı tavanı paylaşıyor.
+ */
 export const MAX_BATCH = 20;
 
 export interface Intent {
@@ -39,6 +45,9 @@ function isValidDate(v: unknown): boolean {
 }
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
+
+/** Tarih olarak doğrulanan alan adları. `tools.test.ts` aynı listeyi kilitler. */
+export const DATE_KEYS: readonly string[] = ["date", "from", "to", "dueDate", "matchFrom", "matchTo"];
 
 /** Kuruş: pozitif TAM SAYI. Float para bu projede yasak. */
 function isAmount(v: unknown): boolean {
@@ -115,7 +124,7 @@ function checkArg(key: string, value: unknown, schema: Record<string, unknown>):
       : "Tutarı anlayamadım. Kuruş cinsinden tam bir sayı olmalı.";
   }
 
-  if (key === "date" || key === "from" || key === "to" || key === "dueDate") {
+  if (DATE_KEYS.includes(key)) {
     return isValidDate(value) ? null : `Tarihi anlayamadım: "${String(value)}".`;
   }
 
@@ -135,7 +144,7 @@ function checkArg(key: string, value: unknown, schema: Record<string, unknown>):
     if (!Array.isArray(value)) return `${key} bir liste olmalı.`;
     if (value.length === 0) return "Liste boş geldi, ne yapacağımı anlayamadım.";
     if (value.length > MAX_BATCH) {
-      return `${value.length} kayıt eşleşti, bu çok geniş görünüyor — daraltabilir misin?`;
+      return `${value.length} öğe çok fazla, en fazla ${MAX_BATCH} olabilir.`;
     }
     if (!value.every((x) => isNonEmptyString(x))) return `${key} yalnızca metin içermeli.`;
     return null;

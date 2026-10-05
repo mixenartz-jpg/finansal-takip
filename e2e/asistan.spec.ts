@@ -226,32 +226,125 @@ test.describe("asistan -- yazma araçları", () => {
     await expect(page.getByText(unique)).toBeVisible();
   });
 
-  /**
-   * Bağlanmayan araçlar (güncelleme/silme) SESSİZCE geçmemeli:
-   * hangi kaydın kastedildiği güvenle bulunamıyor ve uydurma bir
-   * kimlikle devam etmek yanlış kaydı silmek olurdu.
-   */
-  test("★ bağlanmayan araç anlaşılır hata verir", async ({ page }) => {
+});
+
+/**
+ * ── KAYIT SEÇİCİSİ ──
+ *
+ * Güncelleme/silme araçları kimlik taşımıyor: model kaydı TARİF
+ * ediyor, adaylar istemcinin önbelleğinden bulunuyor ve kullanıcı
+ * onay kartında seçiyor. Bu testler zinciri uçtan uca sınıyor.
+ */
+test.describe("asistan -- kayıt seçicisi", () => {
+  /** `/api/chat`'in döndüreceği niyeti sırayla değiştirir. */
+  async function mockIntents(page: Page) {
+    const state: { next: Record<string, unknown> | null } = { next: null };
     await page.route("**/api/chat", (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          intent: {
-            name: "deleteTransaction",
-            args: { ids: ["00000000-0000-0000-0000-000000000001"] },
-            needsConfirm: true,
-          },
-        }),
+        body: JSON.stringify({ intent: { ...state.next, needsConfirm: true } }),
       }),
     );
+    return state;
+  }
+
+  async function say(page: Page, text: string) {
+    await page.getByLabel("Asistana yaz").fill(text);
+    await page.getByRole("button", { name: "Gönder" }).click();
+  }
+
+  /** Testlerin saat dilimindeki bugün (playwright.config: Europe/Istanbul). */
+  const today = () =>
+    new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date());
+
+  test("★ tek aday seçili gelir ve güncelleme uygulanır", async ({ page }) => {
+    const unique = `SecKat${Date.now()}`;
+    const state = await mockIntents(page);
 
     await page.goto("/");
     await page.getByRole("button", { name: "Asistanı aç" }).click();
-    await page.getByLabel("Asistana yaz").fill("dünkü market işlemini sil");
-    await page.getByRole("button", { name: "Gönder" }).click();
 
+    state.next = { name: "createCategory", args: { name: unique, kind: "expense" } };
+    await say(page, "yeni bir kategori oluştur");
     await page.getByRole("button", { name: "Onayla" }).click();
-    await expect(page.getByText(/henüz uygulayamıyorum/i)).toBeVisible();
+    await expect(page.getByText("✓ Uygulandı")).toBeVisible({ timeout: 15_000 });
+
+    state.next = {
+      name: "updateCategory",
+      args: { categoryName: unique, name: `${unique}Yeni` },
+    };
+    await say(page, "o kategorinin adını değiştir");
+
+    // Tek aday: seçili gelir, ama kullanıcı yine de GÖRÜR.
+    const radio = page.getByRole("radio", { name: new RegExp(unique) });
+    await expect(radio).toBeChecked();
+
+    await page.getByRole("button", { name: "Onayla" }).last().click();
+    await expect(page.getByText("✓ Uygulandı")).toHaveCount(2, { timeout: 15_000 });
+
+    await page.goto("/kategoriler");
+    await expect(page.getByText(`${unique}Yeni`)).toBeVisible();
+  });
+
+  /**
+   * Tarife uyan kayıt yoksa onay KAPALI. Eskiden model uydurma bir
+   * kimlik üretiyor, silme sıfır satır etkileyip "uygulandı"
+   * diyordu.
+   */
+  test("★ tarife uyan kayıt yoksa onaylanamaz", async ({ page }) => {
+    const state = await mockIntents(page);
+    state.next = {
+      name: "deleteTransaction",
+      args: { matchFrom: today(), matchTo: today(), matchNote: `yok-${Date.now()}` },
+    };
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Asistanı aç" }).click();
+    await say(page, "bugünkü o işlemi sil");
+
+    await expect(page.getByText(/bulamadım/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Onayla" })).toBeDisabled();
+  });
+
+  /**
+   * Birden fazla aday varsa HİÇBİRİ seçili gelmez: silmede "hepsi"
+   * varsayımı yıkıcı. Kullanıcı işaretledikçe düğme sayıyı söyler.
+   */
+  test("★ birden fazla adayda seçim yapılmadan silinmez", async ({ page }) => {
+    const note = `secici-${Date.now()}`;
+    const state = await mockIntents(page);
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Asistanı aç" }).click();
+
+    for (const amountKurus of [1_100, 2_200]) {
+      state.next = {
+        name: "createTransaction",
+        args: { kind: "expense", amountKurus, date: today(), note },
+      };
+      await say(page, "bir gider ekle");
+      await page.getByRole("button", { name: "Onayla" }).last().click();
+    }
+    await expect(page.getByText("✓ Uygulandı")).toHaveCount(2, { timeout: 15_000 });
+
+    state.next = {
+      name: "deleteTransaction",
+      args: { matchFrom: today(), matchTo: today(), matchNote: note },
+    };
+    await say(page, "bugünkü o iki işlemi sil");
+
+    const boxes = page.getByRole("checkbox");
+    await expect(boxes).toHaveCount(2);
+    for (const box of await boxes.all()) await expect(box).not.toBeChecked();
+
+    const confirm = page.getByRole("button", { name: /onayla/i }).last();
+    await expect(confirm).toBeDisabled();
+
+    await boxes.nth(0).check();
+    await boxes.nth(1).check();
+    await expect(page.getByRole("button", { name: "2 kaydı onayla" })).toBeEnabled();
+    await page.getByRole("button", { name: "2 kaydı onayla" }).click();
+    await expect(page.getByText("✓ Uygulandı")).toHaveCount(3, { timeout: 15_000 });
   });
 });
