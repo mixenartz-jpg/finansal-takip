@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { MODEL_CHAIN, NO_RESPONSE, shouldFallback } from "./models";
+import { MODEL_CHAIN, NO_RESPONSE, TIMED_OUT, shouldFallback } from "./models";
 
 /**
  * Model zinciri POLİTİKASI.
@@ -82,5 +82,11 @@ describe("shouldFallback -- ★ hangi hata zinciri ilerletir", () => {
 
   test("200 düşmez", () => {
     expect(shouldFallback(200)).toBe(false);
+  });
+});
+
+describe("shouldFallback -- zaman aşımı", () => {
+  test("zaman aşımı zinciri ilerletir", () => {
+    expect(shouldFallback(TIMED_OUT)).toBe(true);
   });
 });

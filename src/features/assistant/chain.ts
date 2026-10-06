@@ -1,4 +1,11 @@
-import { MODEL_CHAIN, NO_RESPONSE, shouldFallback } from "./models";
+import {
+  ATTEMPT_TIMEOUT_MS,
+  LAST_ATTEMPT_TIMEOUT_MS,
+  MODEL_CHAIN,
+  NO_RESPONSE,
+  TIMED_OUT,
+  shouldFallback,
+} from "./models";
 import { callGemini } from "./gemini";
 import { parseIntent, type Intent } from "./intent";
 import type { AssistantContext } from "./prompt";
@@ -51,6 +58,8 @@ export interface RunAssistantOptions {
    * ikinci turu desteklemiyordur.
    */
   runRead?: (name: string, args: Record<string, unknown>) => string | null;
+  /** Model başına bekleme sınırları. Verilmezse `models.ts` değerleri. */
+  timeouts?: { attemptMs: number; lastAttemptMs: number };
 }
 
 /**
@@ -85,6 +94,7 @@ function labelFor(status: number): string {
   if (status === OK) return "ok";
   if (status === EMPTY_RESPONSE) return "bos";
   if (status === NO_RESPONSE) return "cevap-yok";
+  if (status === TIMED_OUT) return "zaman-asimi";
   return String(status);
 }
 
@@ -99,7 +109,7 @@ function errorFor(status: number): string {
   if (status === 401 || status === 403) {
     return "Yapay zeka bağlantısı yapılandırılmamış. İşlemi elle ekleyebilirsin.";
   }
-  if (status >= 500) {
+  if (status >= 500 || status === TIMED_OUT) {
     return "Yapay zeka şu an cevap vermiyor, biraz sonra tekrar dener misin?";
   }
   return "Yapay zekaya ulaşamadım. İşlemi elle ekleyebilirsin.";
@@ -107,11 +117,17 @@ function errorFor(status: number): string {
 
 export async function runAssistant(opts: RunAssistantOptions): Promise<AssistantResult> {
   const { apiKey, message, ctx, fetchFn, runRead } = opts;
+  const timeouts = opts.timeouts ?? {
+    attemptMs: ATTEMPT_TIMEOUT_MS,
+    lastAttemptMs: LAST_ATTEMPT_TIMEOUT_MS,
+  };
+  const lastIndex = MODEL_CHAIN.length - 1;
   let lastStatus = 0;
   const attempts: ModelAttempt[] = [];
 
-  for (const model of MODEL_CHAIN) {
-    const res = await callGemini({ apiKey, model, message, ctx, fetchFn });
+  for (const [index, model] of MODEL_CHAIN.entries()) {
+    const timeoutMs = index === lastIndex ? timeouts.lastAttemptMs : timeouts.attemptMs;
+    const res = await callGemini({ apiKey, model, message, ctx, fetchFn, timeoutMs });
 
     if (!res.ok) {
       lastStatus = res.status;
@@ -147,6 +163,9 @@ export async function runAssistant(opts: RunAssistantOptions): Promise<Assistant
             message,
             ctx,
             fetchFn,
+            // Kısa sınır, son modelde bile: bu tur başarısız olursa
+            // aracın özeti zaten gösteriliyor, beklemeye değmez.
+            timeoutMs: timeouts.attemptMs,
             // Adımlar BİREBİR geri gidiyor: `thought` imzaları şart.
             priorSteps: res.steps,
             functionResult: {

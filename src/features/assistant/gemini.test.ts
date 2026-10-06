@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { callGemini, GEMINI_ENDPOINT } from "./gemini";
+import { NO_RESPONSE, TIMED_OUT } from "./models";
 
 /**
  * Interactions API istemcisi.
@@ -333,5 +334,58 @@ describe("callGemini -- ★ ikinci tur (function_result)", () => {
     if (!r.ok) return;
     expect(r.steps).toEqual(firstTurnSteps);
     expect(r.callId).toBe("fc_1");
+  });
+});
+
+describe("callGemini -- zaman sınırı", () => {
+  /** Yalnızca istek iptal edilince sonlanan, hiç cevap vermeyen fetch. */
+  const hangingFetch = () =>
+    vi.fn<typeof fetch>(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal!.reason));
+        }),
+    );
+
+  test("cevap vermeyen model sınır dolunca zaman aşımı olarak döner", async () => {
+    const r = await callGemini({
+      apiKey: "k",
+      model: "gemini-3.8-flash",
+      message: "x",
+      ctx,
+      fetchFn: hangingFetch(),
+      timeoutMs: 20,
+    });
+
+    expect(r).toEqual({ ok: false, status: TIMED_OUT });
+  });
+
+  test("sınır içinde gelen cevap etkilenmez", async () => {
+    const r = await callGemini({
+      apiKey: "k",
+      model: "gemini-3.8-flash",
+      message: "x",
+      ctx,
+      fetchFn: fakeFetch(fcResponse),
+      timeoutMs: 1000,
+    });
+
+    expect(r.ok).toBe(true);
+  });
+
+  test("ağ kopması zaman aşımı sayılmaz", async () => {
+    const f = vi.fn<typeof fetch>(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    const r = await callGemini({
+      apiKey: "k",
+      model: "gemini-3.8-flash",
+      message: "x",
+      ctx,
+      fetchFn: f,
+      timeoutMs: 1000,
+    });
+
+    expect(r).toEqual({ ok: false, status: NO_RESPONSE });
   });
 });

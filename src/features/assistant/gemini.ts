@@ -1,3 +1,4 @@
+import { NO_RESPONSE, TIMED_OUT } from "./models";
 import { TOOLS } from "./tools";
 import { SYSTEM_INSTRUCTION, buildContextBlock, type AssistantContext } from "./prompt";
 
@@ -73,6 +74,11 @@ export interface CallGeminiOptions {
   priorSteps?: readonly unknown[];
   /** Çalıştırılan aracın sonucu. `priorSteps` ile birlikte verilir. */
   functionResult?: GeminiFunctionResult;
+  /**
+   * Bu kadar ms içinde cevap gelmezse istek iptal edilir ve
+   * `TIMED_OUT` döner. Verilmezse sınır yok.
+   */
+  timeoutMs?: number;
 }
 
 interface InteractionStep {
@@ -85,6 +91,12 @@ interface InteractionStep {
 
 export async function callGemini(opts: CallGeminiOptions): Promise<GeminiCallResult> {
   const { apiKey, model, message, ctx, fetchFn = fetch, priorSteps, functionResult } = opts;
+  const signal = opts.timeoutMs === undefined ? undefined : AbortSignal.timeout(opts.timeoutMs);
+  // İptal sebebi yalnızca bizim sınırımız olabilir: başka sinyal yok.
+  const failure = (): GeminiCallResult => ({
+    ok: false,
+    status: signal?.aborted ? TIMED_OUT : NO_RESPONSE,
+  });
 
   const body = {
     model,
@@ -123,10 +135,11 @@ export async function callGemini(opts: CallGeminiOptions): Promise<GeminiCallRes
         "content-type": "application/json",
       },
       body: JSON.stringify(body),
+      signal,
     });
   } catch {
-    // Ağ tamamen kopmuş. 0 "HTTP cevabı yok" anlamında.
-    return { ok: false, status: 0 };
+    // Ağ tamamen kopmuş ya da süre doldu.
+    return failure();
   }
 
   if (!res.ok) return { ok: false, status: res.status };
@@ -135,8 +148,9 @@ export async function callGemini(opts: CallGeminiOptions): Promise<GeminiCallRes
   try {
     json = (await res.json()) as { steps?: InteractionStep[] };
   } catch {
-    // 200 ama JSON değil (proxy hata sayfası vb.).
-    return { ok: false, status: 0 };
+    // 200 ama JSON değil (proxy hata sayfası vb.) ya da gövde
+    // okunurken süre doldu.
+    return failure();
   }
 
   const steps = Array.isArray(json.steps) ? json.steps : [];

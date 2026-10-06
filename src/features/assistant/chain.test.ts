@@ -347,3 +347,74 @@ describe("formatAttempts", () => {
     expect(formatAttempts([])).toBe("");
   });
 });
+
+describe("runAssistant -- zaman sınırı", () => {
+  test("takılan model beklenmez, sıradaki cevap verir", async () => {
+    let i = 0;
+    const f = vi.fn<typeof fetch>((_url, init) => {
+      if (i++ === 0) {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal!.reason));
+        });
+      }
+      return Promise.resolve(json(fcBody));
+    });
+
+    const r = await runAssistant({
+      apiKey: "k",
+      message: "markete 300",
+      ctx,
+      fetchFn: f,
+      timeouts: { attemptMs: 20, lastAttemptMs: 20 },
+    });
+
+    expect(r.kind).toBe("intent");
+    expect(formatAttempts(r.attempts)).toBe(
+      `${MODEL_CHAIN[0]}=zaman-asimi, ${MODEL_CHAIN[1]}=ok`,
+    );
+  });
+
+  test("son model daha uzun sınırla çağrılır", async () => {
+    const seen: number[] = [];
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+      seen.push(ms);
+      return new AbortController().signal;
+    });
+    const f = sequence(json({}, 503));
+
+    try {
+      await runAssistant({
+        apiKey: "k",
+        message: "x",
+        ctx,
+        fetchFn: f,
+        timeouts: { attemptMs: 10, lastAttemptMs: 99 },
+      });
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(seen).toEqual([...MODEL_CHAIN.slice(1).map(() => 10), 99]);
+  });
+
+  test("hepsi zaman aşımına uğrarsa 'cevap vermiyor' mesajı döner", async () => {
+    const f = vi.fn<typeof fetch>(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal!.reason));
+        }),
+    );
+
+    const r = await runAssistant({
+      apiKey: "k",
+      message: "x",
+      ctx,
+      fetchFn: f,
+      timeouts: { attemptMs: 10, lastAttemptMs: 10 },
+    });
+
+    expect(r.kind).toBe("error");
+    if (r.kind !== "error") return;
+    expect(r.error).toContain("cevap vermiyor");
+  });
+});

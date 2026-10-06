@@ -28,11 +28,39 @@ export const MODEL_CHAIN: readonly string[] = [
 export const NO_RESPONSE = 0;
 
 /**
+ * Model, tanınan süre içinde cevap vermedi.
+ *
+ * `NO_RESPONSE`'tan AYRI: ağ kopması değil, Google tarafının yavaş
+ * günü. Deneme kaydında ikisi karışırsa "bağlantım mı bozuk, model
+ * mi takıldı" sorusu cevapsız kalır.
+ */
+export const TIMED_OUT = -2;
+
+/**
+ * Model başına bekleme sınırları (ms).
+ *
+ * ── NEDEN VAR ──
+ *
+ * 2026-10-06'da ölçüldü: yoğun bir anda `gemini-3.6-flash` "meşgulüm"
+ * (503) demek için 46-90 sn bekletti. Sınır olmadığı için zincir o
+ * modelde takılıyor, kullanıcı dakikalarca "Düşünüyorum..." görüyordu.
+ *
+ * ── SON MODEL NEDEN DAHA UZUN ──
+ *
+ * Sonuncudan sonra düşülecek model yok: onu erken kesmek, geç gelen
+ * bir cevabı kesin bir hataya çevirir. Aynı ölçümde son model 28-36 sn
+ * sonra DOĞRU cevap verdi.
+ */
+export const ATTEMPT_TIMEOUT_MS = 12_000;
+export const LAST_ATTEMPT_TIMEOUT_MS = 45_000;
+
+/**
  * Bu HTTP durumu sıradaki modeli denemeyi haklı kılar mı?
  *
  * SADECE geçici hatalar:
  *   - 429: bu modelin kotası doldu, diğerinin kotası ayrı.
  *   - 5xx: Google tarafında geçici sorun.
+ *   - -2 : model süresinde cevap vermedi; sıradaki hızlı olabilir.
  *   - 0  : cevap hiç gelmedi (ağ koptu, bozuk gövde). Geçici bir
  *          kesinti olabilir; ikinci bir deneme ucuz ve sık işe
  *          yarıyor. Bunu dışarıda bırakmak, tek bir ağ titremesinde
@@ -43,5 +71,7 @@ export const NO_RESPONSE = 0;
  * denemek yalnızca kullanıcıyı bekletir ve gerçek sebebi gizler.
  */
 export function shouldFallback(status: number): boolean {
-  return status === NO_RESPONSE || status === 429 || status >= 500;
+  return (
+    status === NO_RESPONSE || status === TIMED_OUT || status === 429 || status >= 500
+  );
 }
