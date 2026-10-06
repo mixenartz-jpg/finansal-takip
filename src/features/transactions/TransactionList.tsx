@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { formatTRYSigned } from "@/lib/money/money";
 import { formatLongDate } from "@/lib/ui/tr";
+import { todayStr } from "@/lib/date/date";
 import type { DateStr } from "@/lib/date/types";
+import { groupByDay, isDayOpen, type DayGroup } from "./grouping";
 import type { Transaction } from "./types";
 import type { Category } from "@/features/categories/types";
 import type { Account } from "@/features/accounts/types";
@@ -21,6 +24,16 @@ import { EmptyState, Skeleton } from "@/components/ui";
  *
  * Tutar sütunu `.tnum` taşır. Orantılı rakamlarla "1.111" ve "8.888"
  * farklı genişlikte çizilir, sütun kayar ve göz listeyi tarayamaz.
+ *
+ * ── DARALTILABİLİR GÜNLER ──
+ *
+ * İşlemler sayfasında liste uzadıkça bugünü bulmak için geçmişin
+ * içinden kaydırmak gerekiyordu. `collapsible` verildiğinde her gün
+ * bir kutu: bugün açık, önceki günler kapalı gelir ve başlığında o
+ * günün toplamını taşır. Çoğu zaman cevap ("dün ne harcadım") kutuyu
+ * açmadan okunur.
+ *
+ * Panelde (son işlemler) liste zaten kısa; orada günler açık kalır.
  */
 
 interface TransactionListProps {
@@ -28,6 +41,8 @@ interface TransactionListProps {
   categories: readonly Category[];
   accounts: readonly Account[];
   loading?: boolean;
+  /** Günler daraltılabilir kutular olsun: bugün açık, geçmiş kapalı. */
+  collapsible?: boolean;
   onDelete?: (id: string) => void;
   onEdit?: (tx: Transaction) => void;
 }
@@ -37,9 +52,17 @@ export function TransactionList({
   categories,
   accounts,
   loading,
+  collapsible = false,
   onDelete,
   onEdit,
 }: TransactionListProps) {
+  /*
+   * Yalnızca kullanıcının ELLE değiştirdiği günler tutulur. Varsayılan
+   * (bugün açık) her render'da hesaplanır; saklansaydı gece yarısını
+   * geçen açık bir sekmede dünün kutusu "bugün" diye açık kalırdı.
+   */
+  const [overrides, setOverrides] = useState<ReadonlyMap<DateStr, boolean>>(new Map());
+
   if (loading) {
     return (
       <div className="flex flex-col gap-2">
@@ -61,34 +84,135 @@ export function TransactionList({
 
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   const accountById = new Map(accounts.map((a) => [a.id, a]));
-  const groups = groupByDate(transactions);
+  const days = groupByDay(transactions);
+  const today = todayStr();
+
+  const rows = (items: readonly Transaction[]) =>
+    items.map((tx) => (
+      <li key={tx.id}>
+        <TransactionRow
+          tx={tx}
+          category={tx.categoryId ? categoryById.get(tx.categoryId) : undefined}
+          account={accountById.get(tx.accountId)}
+          counterAccount={tx.counterAccountId ? accountById.get(tx.counterAccountId) : undefined}
+          onDelete={onDelete}
+          onEdit={onEdit}
+        />
+      </li>
+    ));
+
+  if (collapsible) {
+    return (
+      <div className="flex flex-col gap-2">
+        {days.map((day) => {
+          const open = isDayOpen(day.date, today, overrides);
+          return (
+            <DayBox
+              key={day.date}
+              day={day}
+              open={open}
+              onToggle={() => setOverrides((prev) => new Map(prev).set(day.date, !open))}
+            >
+              {rows(day.items)}
+            </DayBox>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5">
-      {groups.map(([date, items]) => (
-        <section key={date}>
+      {days.map((day) => (
+        <section key={day.date}>
           <h2 className="mb-2 text-[13px] font-medium text-[var(--ink-3)]">
-            {formatLongDate(date)}
+            {formatLongDate(day.date)}
           </h2>
           <ul className="flex flex-col divide-y divide-[var(--border)] rounded-[var(--r-lg)] border border-[var(--border)]">
-            {items.map((tx) => (
-              <li key={tx.id}>
-                <TransactionRow
-                  tx={tx}
-                  category={tx.categoryId ? categoryById.get(tx.categoryId) : undefined}
-                  account={accountById.get(tx.accountId)}
-                  counterAccount={
-                    tx.counterAccountId ? accountById.get(tx.counterAccountId) : undefined
-                  }
-                  onDelete={onDelete}
-                  onEdit={onEdit}
-                />
-              </li>
-            ))}
+            {rows(day.items)}
           </ul>
         </section>
       ))}
     </div>
+  );
+}
+
+/**
+ * Daraltılabilir gün kutusu.
+ *
+ * Başlığın tamamı düğme: dokunma hedefi satır kadar geniş. Toplamlar
+ * kutu açıkken de görünür — açmak bilgiyi değiştirmez, ayrıntı ekler.
+ *
+ * Gider ve gelir yalnızca renkle ayrılmıyor: işaret (− / +) görünür,
+ * ekran okuyucu için de adı söyleniyor.
+ */
+function DayBox({
+  day,
+  open,
+  onToggle,
+  children,
+}: {
+  day: DayGroup;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  const panelId = `gun-${day.date}`;
+
+  return (
+    <section className="rounded-[var(--r-lg)] border border-[var(--border)]">
+      <h2>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className={[
+            "flex w-full items-center gap-2 px-3 py-2.5 text-left",
+            // Açıkken alt köşeler düz: vurgu, altındaki listeyle
+            // arasındaki çizgiye oturur.
+            open ? "rounded-t-[var(--r-lg)]" : "rounded-[var(--r-lg)]",
+            "hover:bg-[var(--surface-2)]",
+            "transition-colors duration-[var(--dur-fast)] ease-[var(--ease)]",
+          ].join(" ")}
+        >
+          <ChevronGlyph open={open} />
+          <span className="flex min-w-0 items-baseline gap-2">
+            <span className="truncate text-sm font-medium text-[var(--ink)]">
+              {formatLongDate(day.date)}
+            </span>
+            {/* Dar ekranda yer tarihe ve toplamlara kalır; sayı
+                ekran okuyucu için yerinde durur. */}
+            <span className="shrink-0 text-[13px] text-[var(--ink-3)] max-sm:sr-only">
+              {day.items.length} işlem
+            </span>
+          </span>
+          <span className="tnum ml-auto flex shrink-0 items-baseline gap-3 text-sm font-medium">
+            {day.incomeKurus > 0 && (
+              <span className="text-[var(--income)]">
+                <span className="sr-only">gelir </span>
+                {formatTRYSigned(day.incomeKurus, "income")}
+              </span>
+            )}
+            {day.expenseKurus > 0 && (
+              <span className="text-[var(--expense)]">
+                <span className="sr-only">gider </span>
+                {formatTRYSigned(day.expenseKurus, "expense")}
+              </span>
+            )}
+          </span>
+        </button>
+      </h2>
+
+      {open && (
+        <ul
+          id={panelId}
+          className="flex flex-col divide-y divide-[var(--border)] border-t border-[var(--border)]"
+        >
+          {children}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -185,17 +309,28 @@ function TransactionRow({
   );
 }
 
-/** Tarihe göre gruplar; işlemler zaten tarihe göre sıralı gelir. */
-function groupByDate(
-  transactions: readonly Transaction[],
-): [DateStr, Transaction[]][] {
-  const map = new Map<DateStr, Transaction[]>();
-  for (const tx of transactions) {
-    const list = map.get(tx.date);
-    if (list) list.push(tx);
-    else map.set(tx.date, [tx]);
-  }
-  return [...map.entries()];
+/** Kapalıyken sağa, açıkken aşağı bakar. */
+function ChevronGlyph({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={[
+        "shrink-0 text-[var(--ink-3)]",
+        "transition-transform duration-[var(--dur-fast)] ease-[var(--ease)]",
+        open ? "rotate-90" : "",
+      ].join(" ")}
+    >
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
 }
 
 function MicGlyph() {

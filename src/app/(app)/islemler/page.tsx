@@ -62,6 +62,7 @@ export default function IslemlerPage() {
         categories={categories.data ?? []}
         accounts={accounts.data ?? []}
         loading={transactions.isPending}
+        collapsible
         onDelete={handleDelete}
         onEdit={setEditing}
       />
