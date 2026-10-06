@@ -10,6 +10,7 @@ import {
 function fakeWindow(opts: {
   secure?: boolean;
   api?: "standard" | "webkit" | "none";
+  brave?: boolean;
 }): Window {
   const ctor = function () {} as unknown as SpeechRecognitionConstructor;
   const w: Record<string, unknown> = {
@@ -17,6 +18,7 @@ function fakeWindow(opts: {
   };
   if (opts.api === "standard") w.SpeechRecognition = ctor;
   if (opts.api === "webkit") w.webkitSpeechRecognition = ctor;
+  w.navigator = opts.brave ? { brave: { isBrave: async () => true } } : {};
   return w as unknown as Window;
 }
 
@@ -41,6 +43,17 @@ describe("detectSupport", () => {
     expect(r.supported === false && r.reason).toBe("insecure-context");
   });
 
+  test("Brave'de API görünse bile desteklenmiyor -- servis engelli", () => {
+    const r = detectSupport(fakeWindow({ api: "webkit", brave: true }));
+    expect(r.supported).toBe(false);
+    expect(r.supported === false && r.reason).toBe("brave");
+  });
+
+  test("navigator'ı olmayan pencerede çökmez", () => {
+    const w = { isSecureContext: true, SpeechRecognition: function () {} } as unknown as Window;
+    expect(detectSupport(w).supported).toBe(true);
+  });
+
   test("sunucu tarafında (window yok) desteklenmiyor sayılır", () => {
     const r = detectSupport(undefined);
     expect(r.supported).toBe(false);
@@ -62,6 +75,12 @@ describe("supportMessage", () => {
     expect(supportMessage({ supported: false, reason: "insecure-context" })).toContain(
       "HTTPS",
     );
+  });
+
+  test("Brave'de sebebi ve çıkış yolunu söyler", () => {
+    const msg = supportMessage({ supported: false, reason: "brave" });
+    expect(msg).toContain("Brave");
+    expect(msg).toContain("Chrome");
   });
 
   test("sunucu tarafında mesaj gösterilmez -- yanıp sönen uyarı olmaz", () => {

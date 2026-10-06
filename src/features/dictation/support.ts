@@ -17,11 +17,19 @@
  * API mikrofona eriştiği için HTTPS (ya da localhost) zorunludur.
  * `window.isSecureContext` bunu doğrudan söyler; HTTP üzerinden
  * yayına alınırsa dikte sessizce çalışmaz ve nedeni belirsiz olur.
+ *
+ * ── BRAVE ──
+ *
+ * Brave Chromium tabanlı olduğu için `webkitSpeechRecognition`
+ * TANIMLI, ama sesi yazıya çeviren Google servisine bağlanmıyor:
+ * her deneme "network" hatasıyla biter. API var göründüğü için
+ * yukarıdaki kontrol bunu yakalayamaz; Brave'in kendi işareti
+ * (`navigator.brave`) ayrıca sorulur.
  */
 
 export type DictationSupport =
   | { supported: true }
-  | { supported: false; reason: "no-api" | "insecure-context" | "no-window" };
+  | { supported: false; reason: "no-api" | "insecure-context" | "no-window" | "brave" };
 
 export function detectSupport(win: Window | undefined = globalThis.window): DictationSupport {
   if (typeof win === "undefined") {
@@ -38,6 +46,10 @@ export function detectSupport(win: Window | undefined = globalThis.window): Dict
     return { supported: false, reason: "no-api" };
   }
 
+  if ("brave" in (win.navigator ?? {})) {
+    return { supported: false, reason: "brave" };
+  }
+
   return { supported: true };
 }
 
@@ -49,6 +61,8 @@ export function supportMessage(support: DictationSupport): string | null {
       return "Sesli giriş bu tarayıcıda desteklenmiyor. Chrome veya Edge kullanabilir ya da işlemi elle ekleyebilirsiniz.";
     case "insecure-context":
       return "Sesli giriş için güvenli bağlantı (HTTPS) gerekiyor.";
+    case "brave":
+      return "Sesli giriş Brave'de çalışmıyor: Brave ses tanıma servisine bağlanmıyor. Chrome veya Edge kullanabilir ya da yazarak devam edebilirsiniz.";
     case "no-window":
       return null;
   }
@@ -73,7 +87,7 @@ export function translateRecognitionError(code: SpeechRecognitionErrorCode): str
     case "audio-capture":
       return "Mikrofona erişilemedi. Başka bir uygulama kullanıyor olabilir.";
     case "network":
-      return "Ses tanıma servisine ulaşılamadı. Bağlantınızı kontrol edin.";
+      return "Ses tanıma servisine ulaşılamadı. Bağlantınızı kontrol edin; hep oluyorsa tarayıcınız bu servisi desteklemiyor olabilir, Chrome veya Edge deneyin.";
     case "aborted":
       return "Kayıt durduruldu.";
     case "language-not-supported":
