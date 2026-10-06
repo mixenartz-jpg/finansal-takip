@@ -1,4 +1,4 @@
-import { MODEL_CHAIN, shouldFallback } from "./models";
+import { MODEL_CHAIN, NO_RESPONSE, shouldFallback } from "./models";
 import { callGemini } from "./gemini";
 import { parseIntent, type Intent } from "./intent";
 import type { AssistantContext } from "./prompt";
@@ -15,10 +15,25 @@ import type { AssistantContext } from "./prompt";
  * harcamakla sonuçlanır.
  */
 
-export type AssistantResult =
+/**
+ * Zincirde tek bir modelin denenmesi.
+ *
+ * `status`: HTTP durumu; 200 cevap verdi, 0 cevap hiç gelmedi,
+ * -1 cevap geldi ama içi boştu.
+ */
+export interface ModelAttempt {
+  model: string;
+  status: number;
+}
+
+export type AssistantResult = (
   | { kind: "intent"; intent: Intent; model: string }
   | { kind: "message"; text: string; model: string }
-  | { kind: "error"; error: string };
+  | { kind: "error"; error: string }
+) & {
+  /** Denenen modeller, deneme sırasıyla. Teşhis için. */
+  attempts: readonly ModelAttempt[];
+};
 
 export interface RunAssistantOptions {
   apiKey: string;
@@ -54,6 +69,25 @@ export interface RunAssistantOptions {
  */
 const EMPTY_RESPONSE = -1;
 
+const OK = 200;
+
+/**
+ * Deneme kaydını tek satıra çevirir: "a=429, b=ok".
+ *
+ * Cevap başlığında taşınıyor; hangi modelin cevap verdiğini ve
+ * öncekilerin neden düştüğünü tarayıcının Ağ sekmesinden okumak için.
+ */
+export function formatAttempts(attempts: readonly ModelAttempt[]): string {
+  return attempts.map((a) => `${a.model}=${labelFor(a.status)}`).join(", ");
+}
+
+function labelFor(status: number): string {
+  if (status === OK) return "ok";
+  if (status === EMPTY_RESPONSE) return "bos";
+  if (status === NO_RESPONSE) return "cevap-yok";
+  return String(status);
+}
+
 /** HTTP durumunu kullanıcıya gösterilecek Türkçe mesaja çevirir. */
 function errorFor(status: number): string {
   if (status === EMPTY_RESPONSE) {
@@ -74,21 +108,24 @@ function errorFor(status: number): string {
 export async function runAssistant(opts: RunAssistantOptions): Promise<AssistantResult> {
   const { apiKey, message, ctx, fetchFn, runRead } = opts;
   let lastStatus = 0;
+  const attempts: ModelAttempt[] = [];
 
   for (const model of MODEL_CHAIN) {
     const res = await callGemini({ apiKey, model, message, ctx, fetchFn });
 
     if (!res.ok) {
       lastStatus = res.status;
+      attempts.push({ model, status: res.status });
       // Kalıcı hata: sıradaki modelde de aynı olacak.
       if (!shouldFallback(res.status)) break;
       continue;
     }
 
     if (res.call) {
+      attempts.push({ model, status: OK });
       const parsed = parseIntent(res.call);
       // Doğrulama hatası zinciri İLERLETMEZ.
-      if (!parsed.valid) return { kind: "error", error: parsed.error };
+      if (!parsed.valid) return { kind: "error", error: parsed.error, attempts };
 
       /*
        * ── OKUMA ARACI: İKİNCİ TUR ──
@@ -120,22 +157,26 @@ export async function runAssistant(opts: RunAssistantOptions): Promise<Assistant
           });
 
           if (second.ok && second.text) {
-            return { kind: "message", text: second.text, model };
+            return { kind: "message", text: second.text, model, attempts };
           }
           // İkinci tur başarısız: en azından aracın özetini göster.
-          return { kind: "message", text: readOut, model };
+          return { kind: "message", text: readOut, model, attempts };
         }
       }
 
-      return { kind: "intent", intent: parsed.intent, model };
+      return { kind: "intent", intent: parsed.intent, model, attempts };
     }
 
-    if (res.text) return { kind: "message", text: res.text, model };
+    if (res.text) {
+      attempts.push({ model, status: OK });
+      return { kind: "message", text: res.text, model, attempts };
+    }
 
     // Ne araç ne metin: model boş döndü. Sıradakini dene, ama
     // sebebi "ulaşamadım" ile karıştırma.
     lastStatus = EMPTY_RESPONSE;
+    attempts.push({ model, status: EMPTY_RESPONSE });
   }
 
-  return { kind: "error", error: errorFor(lastStatus) };
+  return { kind: "error", error: errorFor(lastStatus), attempts };
 }

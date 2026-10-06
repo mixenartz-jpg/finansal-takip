@@ -1,5 +1,5 @@
 import { describe, expect, test, vi, type MockedFunction } from "vitest";
-import { runAssistant } from "./chain";
+import { formatAttempts, runAssistant } from "./chain";
 import { MODEL_CHAIN } from "./models";
 
 const ctx = {
@@ -299,5 +299,51 @@ describe("runAssistant -- ★ okuma aracı ikinci tur", () => {
     expect(r.kind).toBe("intent");
     if (r.kind !== "intent") return;
     expect(r.intent.name).toBe("getBalances");
+  });
+});
+
+describe("runAssistant -- deneme kaydı", () => {
+  test("başarılı cevapta düşen ve cevap veren modeller sırayla kaydedilir", async () => {
+    const f = sequence(json({ error: "quota" }, 429), json({}, 503), json(fcBody));
+    const r = await runAssistant({ apiKey: "k", message: "markete 300", ctx, fetchFn: f });
+
+    expect(r.attempts).toEqual([
+      { model: MODEL_CHAIN[0], status: 429 },
+      { model: MODEL_CHAIN[1], status: 503 },
+      { model: MODEL_CHAIN[2], status: 200 },
+    ]);
+  });
+
+  test("kalıcı hatada yalnızca denenen model kaydedilir", async () => {
+    const f = sequence(json({}, 404));
+    const r = await runAssistant({ apiKey: "k", message: "x", ctx, fetchFn: f });
+
+    expect(r.kind).toBe("error");
+    expect(r.attempts).toEqual([{ model: MODEL_CHAIN[0], status: 404 }]);
+  });
+
+  test("boş cevap ağ hatasından ayrı kaydedilir", async () => {
+    const f = sequence(json({ id: "v1", status: "completed", steps: [] }), json(fcBody));
+    const r = await runAssistant({ apiKey: "k", message: "x", ctx, fetchFn: f });
+
+    expect(formatAttempts(r.attempts)).toBe(
+      `${MODEL_CHAIN[0]}=bos, ${MODEL_CHAIN[1]}=ok`,
+    );
+  });
+});
+
+describe("formatAttempts", () => {
+  test("durumları okunur etiketlere çevirir", () => {
+    expect(
+      formatAttempts([
+        { model: "a", status: 429 },
+        { model: "b", status: 0 },
+        { model: "c", status: 200 },
+      ]),
+    ).toBe("a=429, b=cevap-yok, c=ok");
+  });
+
+  test("deneme yoksa boş dizge döner", () => {
+    expect(formatAttempts([])).toBe("");
   });
 });

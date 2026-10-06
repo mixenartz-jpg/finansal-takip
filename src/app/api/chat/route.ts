@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { runAssistant } from "@/features/assistant/chain";
+import { formatAttempts, runAssistant } from "@/features/assistant/chain";
 import { runReadTool, capReadData, type ReadToolData } from "@/features/assistant/read-tools";
 import { RateLimiter } from "@/features/assistant/ratelimit";
 import type { AssistantContext } from "@/features/assistant/prompt";
@@ -246,11 +246,24 @@ export async function POST(request: NextRequest) {
     runRead: (name, args) => runReadTool(name, args, readData),
   });
 
+  /*
+   * ── TEŞHİS BAŞLIKLARI ──
+   *
+   * Hangi modelin cevap verdiği ve öncekilerin neden düştüğü
+   * arayüzde görünmüyor. Gövdeye koymak istemci sözleşmesini
+   * değiştirirdi; başlıkta taşınınca tarayıcının Ağ sekmesinden
+   * okunuyor, arayüz etkilenmiyor. Yalnızca oturumlu çağrı görür.
+   */
+  const headers: Record<string, string> = {
+    "x-assistant-attempts": formatAttempts(result.attempts),
+  };
+
   if (result.kind === "error") {
-    return NextResponse.json({ error: result.error }, { status: 502 });
+    return NextResponse.json({ error: result.error }, { status: 502, headers });
   }
+  headers["x-assistant-model"] = result.model;
   if (result.kind === "message") {
-    return NextResponse.json({ text: result.text });
+    return NextResponse.json({ text: result.text }, { headers });
   }
-  return NextResponse.json({ intent: result.intent });
+  return NextResponse.json({ intent: result.intent }, { headers });
 }
