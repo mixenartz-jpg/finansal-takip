@@ -41,6 +41,7 @@ import {
   addAssistantError,
   addAssistantText,
   addUserMessage,
+  bulkConfirmable,
   emptyConversation,
   resolveAction,
   type Conversation,
@@ -454,6 +455,21 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
     }
   }
 
+  /*
+   * Kaydedilmekte olanlar sayılmaz: düğmeye basıldığı an hepsi
+   * "kaydediliyor"a geçer ve şerit kendiliğinden kaybolur.
+   */
+  const bulk = bulkConfirmable(conversation).filter((m) => !savingIds.has(m.id));
+
+  function handleConfirmAll() {
+    // Her kart kendi kilidini (`confirmingRef`) ve kendi sonucunu
+    // taşıyor: biri başarısız olursa diğerleri etkilenmez.
+    for (const m of bulk) handleConfirm(m.id, m.action.intent);
+    // Şerit az sonra kaybolacak; odak onunla birlikte sayfanın
+    // başına düşmesin diye yazma kutusuna taşınıyor.
+    inputRef.current?.focus();
+  }
+
   const listening = speech.state === "listening";
   const micSupported = speech.support.supported;
   /*
@@ -523,6 +539,26 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
 
         <div ref={listEnd} />
       </div>
+
+      {/*
+        ── HEPSİNİ ONAYLA ──
+
+        Tek mesajda beş harcama söylendiğinde beş ayrı "Onayla"
+        yorucu. Şerit yalnızca birden fazla bekleyen kart varken
+        görünür; tek kartta kartın kendi düğmesi yeterli. Listenin
+        DIŞINDA durur ki kartlar kaydırılırken erişilebilir kalsın.
+      */}
+      {bulk.length > 1 && (
+        <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-2">
+          <p className="text-[13px] text-[var(--ink-2)]">
+            <span className="tnum font-medium text-[var(--ink)]">{bulk.length}</span> işlem onay
+            bekliyor
+          </p>
+          <Button variant="primary" onClick={handleConfirmAll}>
+            Hepsini onayla
+          </Button>
+        </div>
+      )}
 
       <form
         onSubmit={(e) => {

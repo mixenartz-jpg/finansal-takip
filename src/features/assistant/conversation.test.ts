@@ -4,6 +4,7 @@ import {
   addUserMessage,
   addAssistantText,
   addAssistantAction,
+  bulkConfirmable,
   addAssistantError,
   resolveAction,
   MAX_MESSAGES,
@@ -159,5 +160,68 @@ describe("mesaj tavanı", () => {
     // Son mesaj korunmalı, ilkler düşmeli.
     expect(c.messages.at(-1)?.text).toBe(`m${MAX_MESSAGES + 9}`);
     expect(c.messages[0].text).toBe("m10");
+  });
+});
+
+describe("bulkConfirmable -- 'Hepsini onayla' neyi kapsar", () => {
+  const write = (name: string) => ({ name, args: { amountKurus: 100 }, needsConfirm: true });
+
+  test("bekleyen yazma eylemlerini sırasıyla döndürür", () => {
+    let c = emptyConversation();
+    c = addAssistantAction(c, write("createTransaction"));
+    c = addAssistantText(c, "araya giren metin");
+    c = addAssistantAction(c, write("createDebt"));
+
+    expect(bulkConfirmable(c).map((m) => m.action?.intent.name)).toEqual([
+      "createTransaction",
+      "createDebt",
+    ]);
+  });
+
+  test("çözülmüş eylemler girmez", () => {
+    let c = emptyConversation();
+    c = addAssistantAction(c, write("createTransaction"));
+    c = addAssistantAction(c, write("createTransaction"));
+    c = resolveAction(c, c.messages[0].id, "done");
+
+    expect(bulkConfirmable(c).map((m) => m.id)).toEqual([c.messages[1].id]);
+  });
+
+  test("silme ve arşivleme toplu onaya GİRMEZ -- tek tek onaylanır", () => {
+    let c = emptyConversation();
+    c = addAssistantAction(c, write("createTransaction"));
+    c = addAssistantAction(c, write("deleteBudget"));
+    c = addAssistantAction(c, write("archiveAccount"));
+    c = addAssistantAction(c, write("deleteRecurringRule"));
+
+    expect(bulkConfirmable(c).map((m) => m.action?.intent.name)).toEqual(["createTransaction"]);
+  });
+
+  test("güncelleme araçları girmez -- henüz bağlı değiller", () => {
+    let c = emptyConversation();
+    c = addAssistantAction(c, write("updateTransaction"));
+    c = addAssistantAction(c, write("addDebtPayment"));
+
+    expect(bulkConfirmable(c)).toEqual([]);
+  });
+
+  test("vazgeçilen ve başarısız olan eylemler girmez", () => {
+    let c = emptyConversation();
+    c = addAssistantAction(c, write("createTransaction"));
+    c = addAssistantAction(c, write("createTransaction"));
+    c = resolveAction(c, c.messages[0].id, "cancelled");
+    c = resolveAction(c, c.messages[1].id, "failed", "olmadı");
+
+    expect(bulkConfirmable(c)).toEqual([]);
+  });
+
+  test("onay gerektirmeyen eylem girmez", () => {
+    const c = addAssistantAction(emptyConversation(), {
+      name: "getBalances",
+      args: {},
+      needsConfirm: false,
+    });
+
+    expect(bulkConfirmable(c)).toEqual([]);
   });
 });

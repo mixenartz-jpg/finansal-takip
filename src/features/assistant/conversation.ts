@@ -115,3 +115,39 @@ export function resolveAction(
     }),
   };
 }
+
+/**
+ * Toplu onaya girebilen araçlar.
+ *
+ * ── NEDEN İZİN LİSTESİ ──
+ *
+ * Toplu onay, kullanıcının her kartı tek tek okumadığı andır. Beş
+ * harcamayı birlikte onaylamak zararsız; aralarına karışmış bir
+ * silmeyi fark etmeden onaylamak değil. Yasak listesi tutulsaydı
+ * yarın eklenen bir silme aracı kendiliğinden toplu onaya girerdi.
+ *
+ * Güncelleme araçları da dışarıda: henüz bağlı değiller, toplu
+ * onayda yalnızca hata üretirlerdi.
+ */
+const BULK_SAFE_TOOLS: readonly string[] = [
+  "createTransaction",
+  "createAccount",
+  "createCategory",
+  "createDebt",
+  "createRecurringRule",
+  "setBudget",
+];
+
+/** Eylem taşıdığı tipte de görünen mesaj. */
+export type ActionMessage = Message & { action: PendingAction };
+
+/** "Hepsini onayla"nın kapsadığı mesajlar, sohbet sırasıyla. */
+export function bulkConfirmable(c: Conversation): readonly ActionMessage[] {
+  return c.messages.filter(
+    (m): m is ActionMessage =>
+      m.action !== undefined &&
+      m.action.status === "pending" &&
+      m.action.intent.needsConfirm &&
+      BULK_SAFE_TOOLS.includes(m.action.intent.name),
+  );
+}
