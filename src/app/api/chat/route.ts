@@ -265,5 +265,5 @@ export async function POST(request: NextRequest) {
   if (result.kind === "message") {
     return NextResponse.json({ text: result.text }, { headers });
   }
-  return NextResponse.json({ intent: result.intent }, { headers });
+  return NextResponse.json({ intents: result.intents, skipped: result.skipped }, { headers });
 }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { draftToIntent } from "./local-first";
+import { draftToIntent, mentionsMultipleAmounts } from "./local-first";
 import { EMPTY_DRAFT, ZERO_CONFIDENCE, CONFIDENCE_THRESHOLD } from "@/features/parser/types";
 import type { ParseResult } from "@/features/parser/types";
 import type { Kurus } from "@/lib/money/types";
@@ -155,5 +155,25 @@ describe("draftToIntent -- ★ Gemini'ye devredilmesi gereken durumlar", () => {
   test("tanınmayan kategori kimliği null", () => {
     const i = draftToIntent(result({ draft: { ...goodDraft, categoryId: "silinmis" } }), ctx);
     expect(i).toBeNull();
+  });
+});
+
+describe("mentionsMultipleAmounts -- çoklu işlem kural motoruna girmez", () => {
+  test.each([
+    "markete 300 benzine 500 verdim",
+    "300 lira market, 12,50 lira simit",
+    "dün 80 liraya kitap aldım ayrıca 15000 maaş yattı",
+  ])("birden fazla sayı: %s", (text) => {
+    expect(mentionsMultipleAmounts(text)).toBe(true);
+  });
+
+  test.each([
+    "bugün markete 300 lira harcadım",
+    "1.250,50 lira kira",
+    "12,50 tl simit",
+    "bakiyem ne kadar",
+    "",
+  ])("tek sayı ya da hiç: %s", (text) => {
+    expect(mentionsMultipleAmounts(text)).toBe(false);
   });
 });

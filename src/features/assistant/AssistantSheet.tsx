@@ -34,7 +34,7 @@ import {
   intentToDebtInput,
   intentToRecurringInput,
 } from "./to-write";
-import { draftToIntent } from "./local-first";
+import { draftToIntent, mentionsMultipleAmounts } from "./local-first";
 import { createParser } from "@/features/parser";
 import {
   addAssistantAction,
@@ -69,6 +69,11 @@ import type { Intent } from "./intent";
 
 /** Faz 3'ten: `/api/chat` cevabının şekli. */
 interface ChatResponse {
+  /** Onay bekleyen niyetler; tek mesajda birden fazla işlem olabilir. */
+  intents?: Intent[];
+  /** Modelin istediği ama işlenemeyen çağrı sayısı. */
+  skipped?: number;
+  /** Eski tekil biçim. */
   intent?: Intent;
   text?: string;
   error?: string;
@@ -113,7 +118,12 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
   const [conversation, setConversation] = useState<Conversation>(emptyConversation);
   const [draft, setDraft] = useState("");
   const [thinking, setThinking] = useState(false);
-  const [savingId, setSavingId] = useState<string | null>(null);
+  /*
+   * Küme, tek kimlik değil: çoklu işlemde kullanıcı kartları peş
+   * peşe onaylayabilir ve her kart kendi "kaydediliyor" durumunu
+   * taşımalı.
+   */
+  const [savingIds, setSavingIds] = useState<ReadonlySet<string>>(new Set());
 
   const listEnd = useRef<HTMLDivElement>(null);
   /*
@@ -226,13 +236,17 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
     };
 
     try {
-      const parsed = await parser.parse(message, {
-        categories: categories.data ?? [],
-        accounts: accounts.data ?? [],
-        today: todayStr(),
-        defaultAccountId: localCtx.defaultAccountId,
-      });
-      const local = draftToIntent(parsed, localCtx);
+      // Kural motoru cümle başına TEK işlem çıkarır; birden fazla
+      // tutar geçen cümle doğrudan Gemini'ye gider.
+      const parsed = mentionsMultipleAmounts(message)
+        ? null
+        : await parser.parse(message, {
+            categories: categories.data ?? [],
+            accounts: accounts.data ?? [],
+            today: todayStr(),
+            defaultAccountId: localCtx.defaultAccountId,
+          });
+      const local = parsed ? draftToIntent(parsed, localCtx) : null;
       if (local) {
         setConversation((c) => addAssistantAction(c, local));
         // Kilit burada bırakılıyor: Gemini'ye hiç gitmedik.
@@ -267,8 +281,20 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
         setConversation((c) => addAssistantError(c, body.error ?? "Bir şeyler ters gitti."));
         return;
       }
-      if (body.intent) {
-        setConversation((c) => addAssistantAction(c, body.intent!));
+      const intents = body.intents ?? (body.intent ? [body.intent] : []);
+      if (intents.length > 0) {
+        const skipped = body.skipped ?? 0;
+        setConversation((c) => {
+          const withCards = intents.reduce(addAssistantAction, c);
+          // Düşen işlem SÖYLENİR: kullanıcı hepsinin kartını gördüğünü
+          // sanıp eksik kayıtla kalmamalı.
+          return skipped > 0
+            ? addAssistantError(
+                withCards,
+                `Söylediklerinden ${skipped} tanesini işleyemedim; onları ayrıca yazar mısın?`,
+              )
+            : withCards;
+        });
         return;
       }
       if (body.text) {
@@ -291,7 +317,7 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
     /*
      * ── ÇİFT KAYIT KORUMASI ──
      *
-     * `savingId` state'i asenkron güncellenir; yavaş ağda sabırsız
+     * `savingIds` state'i asenkron güncellenir; yavaş ağda sabırsız
      * iki dokunuş aynı render'ın `savingId: null` değerini görüp
      * ikisi de geçerdi — aynı işlem İKİ KEZ kaydedilirdi.
      *
@@ -302,20 +328,39 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
     if (confirmingRef.current.has(messageId)) return;
     confirmingRef.current.add(messageId);
 
+    const setSaving = (on: boolean) =>
+      setSavingIds((prev) => {
+        const next = new Set(prev);
+        if (on) next.add(messageId);
+        else next.delete(messageId);
+        return next;
+      });
+
     const fail = (error: string) => {
-      setSavingId(null);
+      setSaving(false);
       confirmingRef.current.delete(messageId);
       setConversation((c) => resolveAction(c, messageId, "failed", error));
     };
 
-    /** Her mutation aynı sonuç kancalarını paylaşır. */
-    const handlers = {
-      onSuccess: () => {
-        setSavingId(null);
-        confirmingRef.current.delete(messageId);
-        setConversation((c) => resolveAction(c, messageId, "done"));
-      },
-      onError: (err: Error) => fail(err.message),
+    /**
+     * Mutation sonucunu bu karta bağlar.
+     *
+     * ── NEDEN `mutateAsync` ──
+     *
+     * `mutate(input, { onSuccess })` kancaları yalnızca SON çağrı
+     * için çalışır. Çoklu işlemde kullanıcı iki kartı peş peşe
+     * onayladığında ilk kartın kancası hiç tetiklenmez ve kart
+     * "kaydediliyor"da kalırdı. Promise her çağrıya özeldir.
+     */
+    const run = (pending: Promise<unknown>) => {
+      pending.then(
+        () => {
+          setSaving(false);
+          confirmingRef.current.delete(messageId);
+          setConversation((c) => resolveAction(c, messageId, "done"));
+        },
+        (err: unknown) => fail(err instanceof Error ? err.message : "Kaydedilemedi."),
+      );
     };
 
     const cats = categories.data ?? [];
@@ -323,7 +368,7 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
     const today = todayStr();
     const args = intent.args;
 
-    setSavingId(messageId);
+    setSaving(true);
 
     switch (intent.name) {
       case "createTransaction": {
@@ -333,13 +378,13 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
           defaultAccountId: accs[0]?.id ?? null,
         });
         if (!r.ok) return fail(r.error);
-        return createTransaction.mutate(r.input, handlers);
+        return run(createTransaction.mutateAsync(r.input));
       }
 
       case "createAccount": {
         const r = intentToAccountInput(args);
         if (!r.ok) return fail(r.error);
-        return createAccount.mutate(r.input, handlers);
+        return run(createAccount.mutateAsync(r.input));
       }
 
       case "archiveAccount": {
@@ -347,19 +392,19 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
         // ancak uydurma olabilirdi ve sıfır satır etkilerdi.
         const t = resolveTargetId(args, "accountName", accs);
         if (!t.ok) return fail(t.error);
-        return archiveAccount.mutate(t.id, handlers);
+        return run(archiveAccount.mutateAsync(t.id));
       }
 
       case "createCategory": {
         const r = intentToCategoryInput(args);
         if (!r.ok) return fail(r.error);
-        return createCategory.mutate(r.input, handlers);
+        return run(createCategory.mutateAsync(r.input));
       }
 
       case "setBudget": {
         const r = intentToBudgetInput(args, cats, today);
         if (!r.ok) return fail(r.error);
-        return upsertBudget.mutate(r.input, handlers);
+        return run(upsertBudget.mutateAsync(r.input));
       }
 
       case "deleteBudget": {
@@ -369,23 +414,23 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
         if (!t.ok) return fail(t.error);
         const budget = (budgets.data ?? []).find((b) => b.categoryId === t.id);
         if (!budget) return fail("Bu kategoride tanımlı bir bütçe bulamadım.");
-        return deleteBudget.mutate(budget.budgetId, handlers);
+        return run(deleteBudget.mutateAsync(budget.budgetId));
       }
 
       case "createDebt": {
         const r = intentToDebtInput(args, today);
         if (!r.ok) return fail(r.error);
-        return createDebt.mutate(r.input, handlers);
+        return run(createDebt.mutateAsync(r.input));
       }
 
       case "createRecurringRule": {
         const r = intentToRecurringInput(args, { categories: cats, accounts: accs }, today);
         if (!r.ok) return fail(r.error);
-        return createRule.mutate(r.input, handlers);
+        return run(createRule.mutateAsync(r.input));
       }
 
       case "deleteRecurringRule":
-        return deleteRule.mutate(String(args.id), handlers);
+        return run(deleteRule.mutateAsync(String(args.id)));
 
       /*
        * ── BAĞLANMAYAN ARAÇLAR ──
@@ -438,7 +483,7 @@ export function AssistantSheet({ onClose }: { onClose: () => void }) {
                 {m.action ? (
                   <ActionCard
                     action={m.action}
-                    saving={savingId === m.id}
+                    saving={savingIds.has(m.id)}
                     onConfirm={() => handleConfirm(m.id, m.action!.intent)}
                     onCancel={() =>
                       setConversation((c) => resolveAction(c, m.id, "cancelled"))

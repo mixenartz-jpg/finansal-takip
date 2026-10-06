@@ -22,6 +22,26 @@ import type { NamedRecord } from "./resolve";
  * veriyi onaylamaya davet etmek olurdu.
  */
 
+/** Sayı: "300", "12,50", "1.250,50" tek sayı sayılır. */
+const NUMBER_RE = /\d+(?:[.,]\d+)*/g;
+
+/**
+ * Cümlede birden fazla sayı var mı?
+ *
+ * ── NEDEN ──
+ *
+ * Kural motoru cümle başına TEK işlem çıkarır. "markete 300 benzine
+ * 500 verdim" cümlesinde ilk tutarı alıp yüksek güvenle döner; ikinci
+ * harcama sessizce kaybolur. Birden fazla sayı geçen cümle bu yüzden
+ * doğrudan Gemini'ye devredilir.
+ *
+ * Yanlış alarm ("5 ekimde 300 lira") zararsız: yalnızca kural motoru
+ * yerine Gemini cevap verir.
+ */
+export function mentionsMultipleAmounts(text: string): boolean {
+  return (text.match(NUMBER_RE)?.length ?? 0) > 1;
+}
+
 export interface LocalContext {
   categories: readonly NamedRecord[];
   accounts: readonly NamedRecord[];

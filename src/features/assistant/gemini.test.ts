@@ -389,3 +389,43 @@ describe("callGemini -- zaman sınırı", () => {
     expect(r).toEqual({ ok: false, status: NO_RESPONSE });
   });
 });
+
+describe("callGemini -- çoklu araç çağrısı", () => {
+  test("tüm function_call adımları sırayla döner", async () => {
+    const r = await callGemini({
+      apiKey: "k",
+      model: "gemini-3.8-flash",
+      message: "x",
+      ctx,
+      fetchFn: fakeFetch({
+        steps: [
+          { type: "thought", signature: "s" },
+          { type: "function_call", id: "c1", name: "createTransaction", arguments: { amountKurus: 30000 } },
+          { type: "function_call", id: "c2", name: "createTransaction", arguments: { amountKurus: 50000 } },
+        ],
+      }),
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.calls.map((c) => c.callId)).toEqual(["c1", "c2"]);
+    expect(r.calls.map((c) => c.call.arguments.amountKurus)).toEqual([30000, 50000]);
+    // İlk çağrı eski alanlarda da duruyor: tek çağrı yolu değişmedi.
+    expect(r.call).toEqual(r.calls[0].call);
+    expect(r.callId).toBe("c1");
+  });
+
+  test("araç çağrısı yoksa liste boş", async () => {
+    const r = await callGemini({
+      apiKey: "k",
+      model: "gemini-3.8-flash",
+      message: "x",
+      ctx,
+      fetchFn: fakeFetch({ steps: [{ type: "message", content: [{ type: "text", text: "?" }] }] }),
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.calls).toEqual([]);
+  });
+});

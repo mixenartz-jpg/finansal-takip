@@ -1,6 +1,7 @@
 import { describe, expect, test, vi, type MockedFunction } from "vitest";
 import { formatAttempts, runAssistant } from "./chain";
 import { MODEL_CHAIN } from "./models";
+import { MAX_BATCH } from "./intent";
 
 const ctx = {
   today: "2026-09-21",
@@ -416,5 +417,80 @@ describe("runAssistant -- zaman sınırı", () => {
     expect(r.kind).toBe("error");
     if (r.kind !== "error") return;
     expect(r.error).toContain("cevap vermiyor");
+  });
+});
+
+describe("runAssistant -- ★ tek mesajda birden fazla işlem", () => {
+  const fc = (id: string, name: string, args: Record<string, unknown>) => ({
+    type: "function_call",
+    id,
+    name,
+    arguments: args,
+  });
+  const tx = (id: string, amountKurus: unknown) =>
+    fc(id, "createTransaction", { kind: "expense", amountKurus, date: "2026-09-21" });
+  const body = (...steps: unknown[]) => json({ id: "v1", status: "requires_action", steps });
+
+  test("her işlem ayrı niyet olarak döner, sırası korunur", async () => {
+    const f = sequence(body(tx("c1", 30000), tx("c2", 50000), tx("c3", 8000)));
+    const r = await runAssistant({ apiKey: "k", message: "x", ctx, fetchFn: f });
+
+    expect(r.kind).toBe("intent");
+    if (r.kind !== "intent") return;
+    expect(r.intents.map((i) => i.args.amountKurus)).toEqual([30000, 50000, 8000]);
+    expect(r.skipped).toBe(0);
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  test("tek işlemde de liste dolu gelir", async () => {
+    const f = sequence(json(fcBody));
+    const r = await runAssistant({ apiKey: "k", message: "x", ctx, fetchFn: f });
+
+    if (r.kind !== "intent") throw new Error("niyet bekleniyordu");
+    expect(r.intents).toEqual([r.intent]);
+    expect(r.skipped).toBe(0);
+  });
+
+  test("bozuk olan atlanır ama SAYILIR -- sessizce kaybolmaz", async () => {
+    const f = sequence(body(tx("c1", 30000), tx("c2", -5), tx("c3", 8000)));
+    const r = await runAssistant({ apiKey: "k", message: "x", ctx, fetchFn: f });
+
+    if (r.kind !== "intent") throw new Error("niyet bekleniyordu");
+    expect(r.intents.map((i) => i.args.amountKurus)).toEqual([30000, 8000]);
+    expect(r.skipped).toBe(1);
+  });
+
+  test("hepsi bozuksa hata döner", async () => {
+    const f = sequence(body(tx("c1", -1), tx("c2", -2)));
+    const r = await runAssistant({ apiKey: "k", message: "x", ctx, fetchFn: f });
+
+    expect(r.kind).toBe("error");
+  });
+
+  test("yazma ile karışık gelen okuma çağrısı atlanır ve sayılır", async () => {
+    const f = sequence(body(tx("c1", 30000), fc("c2", "getBalances", {}), tx("c3", 8000)));
+    const r = await runAssistant({
+      apiKey: "k",
+      message: "x",
+      ctx,
+      fetchFn: f,
+      runRead: () => "olmamalı",
+    });
+
+    if (r.kind !== "intent") throw new Error("niyet bekleniyordu");
+    expect(r.intents.map((i) => i.name)).toEqual(["createTransaction", "createTransaction"]);
+    expect(r.skipped).toBe(1);
+    // Onay bekleyen yazma varken ikinci tura gidilmez.
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  test("tavanı aşan işlemler atlanır ve sayılır", async () => {
+    const many = Array.from({ length: MAX_BATCH + 3 }, (_, i) => tx(`c${i}`, 100 + i));
+    const f = sequence(body(...many));
+    const r = await runAssistant({ apiKey: "k", message: "x", ctx, fetchFn: f });
+
+    if (r.kind !== "intent") throw new Error("niyet bekleniyordu");
+    expect(r.intents).toHaveLength(MAX_BATCH);
+    expect(r.skipped).toBe(3);
   });
 });

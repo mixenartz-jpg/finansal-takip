@@ -32,10 +32,25 @@ export interface GeminiFunctionCall {
   arguments: Record<string, unknown>;
 }
 
+/** Bir araç çağrısı ve sonucunun bağlanacağı kimlik. */
+export interface GeminiCallStep {
+  call: GeminiFunctionCall;
+  callId: string | null;
+}
+
 export type GeminiCallResult =
   | {
       ok: true;
+      /** İlk araç çağrısı; yoksa null. `calls[0].call` ile aynı. */
       call: GeminiFunctionCall | null;
+      /**
+       * Modelin istediği TÜM araç çağrıları, sırasıyla.
+       *
+       * Kullanıcı tek mesajda birden fazla işlem söylediğinde model
+       * her biri için ayrı `function_call` adımı üretiyor. Yalnızca
+       * ilkini almak diğer işlemleri sessizce düşürüyordu.
+       */
+      calls: readonly GeminiCallStep[];
       text: string | null;
       /**
        * Modelin ürettiği adımlar, DEĞİŞTİRİLMEDEN.
@@ -155,19 +170,21 @@ export async function callGemini(opts: CallGeminiOptions): Promise<GeminiCallRes
 
   const steps = Array.isArray(json.steps) ? json.steps : [];
 
-  const fc = steps.find((s) => s.type === "function_call");
-  if (fc && typeof fc.name === "string") {
-    const args =
-      typeof fc.arguments === "object" && fc.arguments !== null && !Array.isArray(fc.arguments)
-        ? (fc.arguments as Record<string, unknown>)
-        : {};
-    return {
-      ok: true,
-      call: { name: fc.name, arguments: args },
-      text: null,
-      steps,
-      callId: typeof fc.id === "string" ? fc.id : null,
-    };
+  const calls: GeminiCallStep[] = steps
+    .filter((s) => s.type === "function_call" && typeof s.name === "string")
+    .map((s) => ({
+      call: {
+        name: s.name as string,
+        arguments:
+          typeof s.arguments === "object" && s.arguments !== null && !Array.isArray(s.arguments)
+            ? (s.arguments as Record<string, unknown>)
+            : {},
+      },
+      callId: typeof s.id === "string" ? s.id : null,
+    }));
+
+  if (calls.length > 0) {
+    return { ok: true, call: calls[0].call, calls, text: null, steps, callId: calls[0].callId };
   }
 
   // Araç çağrısı yok: model soru soruyor ya da bilgi veriyor.
@@ -178,5 +195,5 @@ export async function callGemini(opts: CallGeminiOptions): Promise<GeminiCallRes
       .filter((t): t is string => typeof t === "string" && t.length > 0)
       .join("\n") || null;
 
-  return { ok: true, call: null, text, steps, callId: null };
+  return { ok: true, call: null, calls: [], text, steps, callId: null };
 }

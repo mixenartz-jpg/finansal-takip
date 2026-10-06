@@ -6,8 +6,8 @@ import {
   TIMED_OUT,
   shouldFallback,
 } from "./models";
-import { callGemini } from "./gemini";
-import { parseIntent, type Intent } from "./intent";
+import { callGemini, type GeminiCallStep } from "./gemini";
+import { MAX_BATCH, parseIntent, type Intent } from "./intent";
 import type { AssistantContext } from "./prompt";
 
 /**
@@ -34,7 +34,21 @@ export interface ModelAttempt {
 }
 
 export type AssistantResult = (
-  | { kind: "intent"; intent: Intent; model: string }
+  | {
+      kind: "intent";
+      /** İlk niyet. `intents[0]` ile aynı. */
+      intent: Intent;
+      /** Onay bekleyen tüm niyetler, kullanıcının söylediği sırayla. */
+      intents: readonly Intent[];
+      /**
+       * Modelin istediği ama listeye GİRMEYEN çağrı sayısı
+       * (doğrulanamadı, tavanı aştı ya da yazmalarla karışık bir
+       * okumaydı). Sıfırdan büyükse kullanıcıya söylenir: sessizce
+       * düşen bir harcama, hiç kaydedilmemiş bir harcamadan kötüdür.
+       */
+      skipped: number;
+      model: string;
+    }
   | { kind: "message"; text: string; model: string }
   | { kind: "error"; error: string }
 ) & {
@@ -115,6 +129,24 @@ function errorFor(status: number): string {
   return "Yapay zekaya ulaşamadım. İşlemi elle ekleyebilirsin.";
 }
 
+/**
+ * Birden fazla araç çağrısından onaya gidecek yazma niyetlerini seçer.
+ *
+ * Hiç geçerli yazma niyeti yoksa null döner; çağıran taraf tek
+ * çağrı yoluna (ilk çağrıya) düşer.
+ */
+function collectWrites(
+  calls: readonly GeminiCallStep[],
+): { intents: Intent[]; skipped: number } | null {
+  const writes = calls
+    .map((c) => parseIntent(c.call))
+    .flatMap((p) => (p.valid && p.intent.needsConfirm ? [p.intent] : []));
+  if (writes.length === 0) return null;
+
+  const intents = writes.slice(0, MAX_BATCH);
+  return { intents, skipped: calls.length - intents.length };
+}
+
 export async function runAssistant(opts: RunAssistantOptions): Promise<AssistantResult> {
   const { apiKey, message, ctx, fetchFn, runRead } = opts;
   const timeouts = opts.timeouts ?? {
@@ -139,6 +171,29 @@ export async function runAssistant(opts: RunAssistantOptions): Promise<Assistant
 
     if (res.call) {
       attempts.push({ model, status: OK });
+
+      /*
+       * ── BİRDEN FAZLA İŞLEM ──
+       *
+       * "markete 300, benzine 500 verdim": model her işlem için ayrı
+       * çağrı üretiyor. Hepsi ayrı onay kartı olarak dönüyor.
+       * Aralarındaki okuma çağrısı işlenmiyor: ikinci tur tek sonuç
+       * taşıyabiliyor ve onay bekleyen yazmalar varken anlamı yok.
+       */
+      if (res.calls.length > 1) {
+        const many = collectWrites(res.calls);
+        if (many) {
+          return {
+            kind: "intent",
+            intent: many.intents[0],
+            intents: many.intents,
+            skipped: many.skipped,
+            model,
+            attempts,
+          };
+        }
+      }
+
       const parsed = parseIntent(res.call);
       // Doğrulama hatası zinciri İLERLETMEZ.
       if (!parsed.valid) return { kind: "error", error: parsed.error, attempts };
@@ -183,7 +238,14 @@ export async function runAssistant(opts: RunAssistantOptions): Promise<Assistant
         }
       }
 
-      return { kind: "intent", intent: parsed.intent, model, attempts };
+      return {
+        kind: "intent",
+        intent: parsed.intent,
+        intents: [parsed.intent],
+        skipped: 0,
+        model,
+        attempts,
+      };
     }
 
     if (res.text) {
